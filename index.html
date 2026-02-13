@@ -1,0 +1,2255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>HAI Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  /* ========= Prisma Health brand palette =========
+     Sources for color values:
+     - Prisma Health Core Elements Guidelines (Color formulas section)
+     - Brandfetch listing for Crimson & Eggplant
+  */
+  :root {
+    /* Brand */
+    --brand: #ED1849;           /* Prisma Rubine / Crimson */
+    --brand-eggplant: #830065;  /* Prisma Eggplant */
+    --brand-warn: #F99B1C;      /* Prisma Tangerine */
+    --brand-apricot: #F15F22;   /* Prisma Apricot */
+    --brand-lemon: #FFD600;     /* Prisma Lemon */
+    --brand-plum: #B32572;      /* Prisma Plum */
+
+    /* Functional */
+    --ok: #1c7c3e;              /* Success (kept green for semantics/contrast) */
+    --warn: var(--brand-warn);  /* Use Tangerine for warnings */
+    --err: var(--brand);        /* Use Crimson for errors/emphasis */
+
+    /* Surfaces & text */
+    --bg: #f6f8fa;
+    --card: #ffffff;
+    --muted: #6b7280;
+    --ink: #111827;
+    --ink-strong: #0f172a;
+
+    /* Component tints */
+    --tab-bg: #fce7ec;          /* light tint from brand */
+    --tab-border: #f3d0d7;
+    --tab-active-bg: #fff;
+  }
+
+  /* Base */
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    background: var(--brand);
+    color: #fff;
+    padding: 14px 16px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 16px; }
+  .caption { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+
+  /* Tabs */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .tab {
+    background: var(--tab-bg);
+    border: 1px solid var(--tab-border);
+    color: var(--ink-strong);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tab.active {
+    background: var(--tab-active-bg);
+    border-color: var(--brand);
+    font-weight: 700;
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand) 12%, transparent);
+  }
+
+  /* Panels: add Prisma Plum top border */
+  .panel {
+    display: none;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    border-top-width: 4px;                /* NEW */
+    border-top-color: var(--brand-plum);  /* NEW */
+  }
+  .panel.active { display: block; }
+
+  /* Headings */
+  h2 { margin: 0 0 6px 0; font-size: 20px; }
+  h3 { margin: 16px 0 8px; font-size: 16px; color: var(--ink-strong); }
+
+  /* Labels/controls */
+  label { font-weight: 600; display: block; margin-top: 12px; }
+
+  /* Responsive grid */
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;           /* was 12px; gives dates more breathing room */
+  }
+  @media (max-width: 720px){ .row { grid-template-columns: 1fr; } }
+
+  /* Prevent grid children/inputs from overflowing (e.g., CAUTI dates) */
+  .row > * { min-width: 0; }
+
+  input[type="date"], input[type="number"], select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 15px;
+    box-sizing: border-box;  /* NEW */
+    min-width: 0;            /* NEW */
+  }
+
+  /* Helper text: wrap long URLs; keep line length readable (items 1,2) */
+  .help {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 4px;
+    overflow-wrap: anywhere;  /* wrap long URLs */
+    word-break: break-word;   /* fallback */
+    max-width: 70ch;          /* comfortable measure */
+  }
+  .radio-row + .help { margin-top: 6px; }
+
+  /* Radio groups */
+  .radio-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+  .radio-row label {
+    font-weight: 400; display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  }
+
+  /* Accessible fieldset styling (item 5) */
+  .fs {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    margin-top: 10px;
+  }
+  .fs > legend {
+    padding: 0 6px;
+    font-weight: 600;
+    color: var(--ink-strong);
+  }
+  .legend-note { margin-left: 8px; font-weight: 700; }
+  .text-red { color: var(--err); }
+
+  /* Buttons */
+  .btn {
+    margin-top: 14px; padding: 10px 12px; background: var(--brand); color: #fff; border: none; border-radius: 8px;
+    font-size: 15px; cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn:focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--brand) 30%, transparent);
+    outline-offset: 2px;
+  }
+
+  /* Notes/results/banners */
+  .note, .result, .banner {
+    border-left: 4px solid #94a3b8; background: #f8fafc; padding: 10px 12px; border-radius: 8px; margin-top: 14px; line-height: 1.6;
+  }
+  .result.ok { border-left-color: var(--ok); background: #f3fcf6; }
+  .result.warn { border-left-color: var(--warn); background: #fff7ec; }
+  .result.err { border-left-color: var(--err); background: #fff1f3; }
+
+  /* NEW: Banner variant for warnings */
+  .banner.warn {
+    border-left-color: var(--warn);
+    background: #fff7ec;
+    color: #7A3E00;
+    font-weight: 600;
+  }
+
+  .kv { margin: 10px 0; }
+  .kv .k { font-weight: 700; display: block; }
+  .muted { color: var(--muted); }
+
+  details { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; margin-top: 12px; }
+  summary { font-weight: 600; cursor: pointer; }
+
+  .divider { height: 1px; background: #e5e7eb; margin: 18px 0; }
+  footer { color: #6b7280; font-size: 12px; margin-top: 20px; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #fff0f3; color: var(--brand); font-size: 12px; margin-left: 4px; }
+
+  /* Keep the right column readable on large screens (item 3) */
+  #panel-clabsi2 #cl2-comm-wrap .row > div:last-child { max-width: 560px; } /* was 520px */
+
+  /* Commensal block: custom 2-col sizing to avoid collisions */
+  .row-comm {
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1fr);
+    gap: 18px;
+  }
+
+  /* Small-screen refinement so nothing collides (item 14) */
+  @media (max-width: 720px){
+    .row, .row-comm { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 540px) {
+    .legend-note { display: block; margin: 6px 0 0 0; }
+  }
+
+ /* --- Feedback QR presentation (new) --- */
+  .feedback-qr {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 6px;
+    background: #fff;
+  }
+/* Make the embedded feedback form responsive and taller */
+#panel-feedback .feedback-frame {
+  display: block;
+  width: 100%;
+  height: 80vh;        /* fills 80% of the viewport height */
+  min-height: 700px;   /* ensures a roomy minimum on desktops */
+  max-height: 90vh;    /* avoids exceeding the viewport on small screens */
+  border: 0;
+  border-radius: 8px;  /* matches your panel’s rounded look */
+}
+
+/* Optional: on very small screens, reduce height a bit */
+@media (max-width: 480px) {
+  #panel-feedback .feedback-frame {
+    height: 70vh;
+    min-height: 520px;
+  }
+}
+/* ===== Compact link styling for C. diff (Option A) ===== */
+.compact-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--brand-eggplant);
+  border-bottom: 1px dashed color-mix(in oklab, var(--brand-eggplant) 40%, transparent);
+}
+.compact-links a:hover,
+.compact-links a:focus {
+  color: var(--brand);
+  border-bottom-color: currentColor;
+}
+
+/* Tiny external-link indicator (hidden in print below) */
+.compact-links a[target="_blank"]::after {
+  content: "↗";
+  font-size: 0.85em;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+/* Keep help blocks tight when they contain links */
+.fs .help.compact-links,
+.help.compact-links {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+/* ===== Focused print: C. diff panel, from Team attestation down ===== */
+@media print {
+  /* Hide global chrome */
+  header, .tabs, footer, .caption { display: none !important; }
+
+  /* Hide everything by default */
+  body * { visibility: hidden; }
+
+  /* Show only the C. diff panel and the print area within it */
+  #panel-cdiff, #panel-cdiff * { visibility: visible; }
+  .panel { display: none !important; }
+  #panel-cdiff { display: block !important; }
+
+  /* Now, show ONLY the targeted sub-area */
+  #panel-cdiff > * { display: none !important; }      /* hide all children */
+  #cd-print-area { display: block !important; }        /* show the print area only */
+
+  /* Page look & margins */
+  body { background: #fff !important; }
+  #cd-print-area { padding: 0.5in; box-shadow: none; }
+
+  /* Keep sections intact, minimize page breaks */
+  .fs, .note, .result, .row, details { break-inside: avoid; page-break-inside: avoid; }
+  .divider { height: 0; margin: 8px 0; }
+
+  /* Tighter typography for print */
+  #cd-print-area { font-size: 13px; line-height: 1.35; }
+  #cd-print-area h3 { margin-top: 8px; margin-bottom: 6px; }
+
+  /* Hide buttons on paper (if you don't want them) */
+  #cd-print-area .btn { display: none !important; }
+
+  /* Compact links look clean on paper */
+  .compact-links a[target="_blank"]::after { content: ""; }
+  .compact-links a { text-decoration: underline; border: 0; color: #000; }
+}
+
+
+</style>
+</head>
+<body>
+<header>HAI Assistant</header>
+<div class="container">
+  <div class="caption">
+    Device days use calendar-day counting (insertion day = Day 1; eligible on Day 3). IWP is 7 days anchored on the first positive diagnostic test (anchor ±3).
+    For UTI/CAUTI, the urine culture anchors the IWP. Device association: in place on the assessment date or removed the calendar day before.
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="clabsi">CLABSI Risk</div>
+    <div class="tab" data-tab="clabsi2">CLABSI Surveillance</div>
+    <div class="tab" data-tab="cauti">CAUTI</div>
+    <div class="tab" data-tab="blood">Blood Culture Escalation</div>
+    <div class="tab" data-tab="urine">Urine Culture Escalation</div>
+    <div class="tab" data-tab="cdiff">C. diff Ticket</div>
+    <div class="tab" data-tab="ssi">SSI Risk</div>
+    <div class="tab" data-tab="feedback">Feedback</div>
+  </div>
+
+  <!-- CLABSI -->
+  <section class="panel active" id="panel-clabsi">
+    <h2>CLABSI Risk</h2>
+    <div class="help">Enter patient information to calculate CLABSI risk and determine if CLABSI criteria are met.</div>
+
+    <div class="toggle">
+      <input type="checkbox" id="clabsi-enable" />
+      <label for="clabsi-enable">Enter dates now</label>
+    </div>
+    <div id="clabsi-form" style="display:none;">
+      <div class="row">
+        <div>
+          <label for="cl-insert">Central line insertion date</label>
+          <input type="date" id="cl-insert" aria-describedby="cl-insert-help"/>
+          <div id="cl-insert-help" class="help">Insertion day counts as Day 1 (calendar days). Eligible starting Day 3 (&gt;2 days).</div>
+        </div>
+        <div>
+          <label for="cl-assess">Assessment date</label>
+          <input type="date" id="cl-assess" aria-describedby="cl-assess-help"/>
+          <div id="cl-assess-help" class="help">Assessment date = first element used to meet CLABSI criterion (within IWP).</div>
+        </div>
+      </div>
+
+      <fieldset class="fs">
+        <legend>Device status on assessment date</legend>
+        <div class="radio-row" id="cl-inplace-row">
+          <label><input type="radio" name="cl-inplace" value="Yes" /> In place</label>
+          <label><input type="radio" name="cl-inplace" value="No" /> Not in place</label>
+        </div>
+      </fieldset>
+
+      <div id="cl-removal-wrap" style="display:none;">
+        <label for="cl-removal">Central line removal date</label>
+        <input type="date" id="cl-removal" aria-describedby="cl-removal-help"/>
+        <div id="cl-removal-help" class="help">If removed yesterday (assessment − 1), still device-associated. If removed on assessment date, it WAS in place that date.</div>
+        <!-- NEW: CLABSI eligibility banner -->
+        <div id="cl-eligibility-banner" class="banner warn" style="display:none;" role="alert" aria-live="assertive">
+          Devices are only eligible if they are in for &gt; 2 calendar days.
+        </div>
+      </div>
+
+      <h3>Microbiology timing (optional, improves IWP accuracy) <span class="pill">IWP: 7 days</span></h3>
+      <div class="radio-row">
+        <label><input type="checkbox" id="cl-use-bcx" /> Specify first positive blood culture collection date</label>
+      </div>
+      <div id="cl-bcx-wrap" style="display:none;">
+        <label for="cl-bcx">First positive blood culture collection date</label>
+        <input type="date" id="cl-bcx" />
+      </div>
+
+      <div class="divider"></div>
+      <h3>Signs &amp; Symptoms within IWP</h3>
+      <div id="cl-iwp-hint" class="help">(set assessment date or culture date)</div>
+      <div class="row">
+        <div>
+          <label for="cl-tempf">Highest documented temperature during IWP (°F)</label>
+          <input type="number" id="cl-tempf" step="0.1" min="80" max="113" value="98.6" inputmode="decimal" aria-describedby="cl-fever-help cl-tempc"/>
+          <div id="cl-fever-help" class="help">Fever threshold is strictly &gt; 38 °C (&gt; 100.4 °F). The app converts °F → °C and applies the strict rule.</div>
+          <div id="cl-tempc" class="muted"></div>
+        </div>
+        <div></div>
+      </div>
+
+      <fieldset class="fs">
+        <legend>Hypotension</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cl-hypo" value="Yes" /> Hypotension present</label>
+          <label><input type="radio" name="cl-hypo" value="No" checked/> No hypotension</label>
+        </div>
+      </fieldset>
+      <fieldset class="fs">
+        <legend>Chills</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cl-chills" value="Yes" /> Chills present</label>
+          <label><input type="radio" name="cl-chills" value="No" checked/> No chills</label>
+        </div>
+      </fieldset>
+      <fieldset class="fs">
+        <legend>Blood culture result</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cl-bcxpos" value="Yes" /> Positive blood culture</label>
+          <label><input type="radio" name="cl-bcxpos" value="No" checked/> No positive blood culture</label>
+        </div>
+      </fieldset>
+
+      <button class="btn" id="cl-run">Calculate CLABSI</button>
+
+      <div id="cl-result" role="status" aria-live="polite"></div>
+    </div>
+    <div id="clabsi-info" class="note">Turn on <b>Enter dates now</b> to input dates. Other tabs (including Escalation) remain available.</div>
+  </section>
+
+  <!-- CLABSI 2 (Surveillance with Organism-Driven Symptoms & Commensal CX Rules) -->
+  <section class="panel" id="panel-clabsi2">
+    <h2>CLABSI Surveillance</h2>
+    <div class="help">Surveillance helper: select organism. For skin flora (common commensals), NHSN requires ≥2 positive blood cultures on separate occasions plus symptoms.</div>
+
+    <div class="toggle">
+      <input type="checkbox" id="cl2-enable" />
+      <label for="cl2-enable">Enter dates now</label>
+    </div>
+
+    <div id="cl2-form" style="display:none;">
+      <div class="row">
+        <div>
+          <label for="cl2-insert">Central line insertion date</label>
+          <input type="date" id="cl2-insert" aria-describedby="cl2-insert-help"/>
+          <div id="cl2-insert-help" class="help">Insertion day counts as Day 1 (calendar days). Eligible starting Day 3 (&gt;2 days).</div>
+        </div>
+        <div>
+          <label for="cl2-assess">Assessment date</label>
+          <input type="date" id="cl2-assess" aria-describedby="cl2-assess-help"/>
+          <div id="cl2-assess-help" class="help">Assessment date = first element used to meet CLABSI criterion (within IWP).</div>
+        </div>
+      </div>
+
+      <fieldset class="fs">
+        <legend>Device status on assessment date</legend>
+        <div class="radio-row" id="cl2-inplace-row">
+          <label><input type="radio" name="cl2-inplace" value="Yes" /> In place</label>
+          <label><input type="radio" name="cl2-inplace" value="No" /> Not in place</label>
+        </div>
+      </fieldset>
+
+      <div id="cl2-removal-wrap" style="display:none;">
+        <label for="cl2-removal">Central line removal date</label>
+        <input type="date" id="cl2-removal" aria-describedby="cl2-removal-help"/>
+        <div id="cl2-removal-help" class="help">If removed yesterday (assessment − 1), still device-associated. If removed on assessment date, it WAS in place that date.</div>
+        <!-- NEW: CLABSI2 eligibility banner -->
+        <div id="cl2-eligibility-banner" class="banner warn" style="display:none;" role="alert" aria-live="assertive">
+          Devices are only eligible if they are in for &gt; 2 calendar days.
+        </div>
+      </div>
+
+      <h3>Microbiology timing (optional, improves IWP accuracy) <span class="pill">IWP: 7 days</span></h3>
+      <div class="radio-row">
+        <label><input type="checkbox" id="cl2-use-bcx" /> Specify first positive blood culture collection date</label>
+      </div>
+      <div id="cl2-bcx-wrap" style="display:none;">
+        <label for="cl2-bcx">First positive blood culture collection date</label>
+        <input type="date" id="cl2-bcx" />
+      </div>
+
+      <div class="divider"></div>
+      <h3>Organism</h3>
+      <label for="cl2-organism">Select organism</label>
+      <select id="cl2-organism"></select>
+      <div class="help">Selecting organisms typically considered skin flora/common commensals will open a symptom window and commensal culture requirements below (per NHSN LCBI-2/3).</div>
+
+      <!-- Conditionally visible only for skin flora/common commensals -->
+      <div id="cl2-sx-wrap" style="display:none;">
+        <h3>Symptoms (required for selected organism)</h3>
+        <div id="cl2-iwp-hint" class="help">(set assessment date or culture date)</div>
+        <div class="row">
+          <div>
+            <label for="cl2-tempf">Highest documented temperature during IWP (°F)</label>
+            <input type="number" id="cl2-tempf" step="0.1" min="80" max="113" value="98.6" inputmode="decimal" aria-describedby="cl2-fever-help cl2-tempc"/>
+            <div id="cl2-fever-help" class="help">Fever threshold is strictly &gt; 38 °C (&gt; 100.4 °F). The app converts °F → °C and applies the strict rule.</div>
+            <div id="cl2-tempc" class="muted"></div>
+          </div>
+          <div></div>
+        </div>
+        <fieldset class="fs">
+          <legend>Hypotension</legend>
+          <div class="radio-row">
+            <label><input type="radio" name="cl2-hypo" value="Yes" /> Hypotension present</label>
+            <label><input type="radio" name="cl2-hypo" value="No" checked/> No hypotension</label>
+          </div>
+        </fieldset>
+        <fieldset class="fs">
+          <legend>Chills</legend>
+          <div class="radio-row">
+            <label><input type="radio" name="cl2-chills" value="Yes" /> Chills present</label>
+            <label><input type="radio" name="cl2-chills" value="No" checked/> No chills</label>
+          </div>
+        </fieldset>
+      </div>
+
+      <fieldset class="fs" style="margin-top: 10px;">
+        <legend>Blood culture result</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cl2-bcxpos" value="Yes" /> Positive blood culture</label>
+          <label><input type="radio" name="cl2-bcxpos" value="No" checked/> No positive blood culture</label>
+        </div>
+      </fieldset>
+
+      <!-- Appears ONLY for skin flora AND Positive blood culture = Yes -->
+      <div id="cl2-comm-wrap" style="display:none;">
+        <h3>Commensal Culture Requirements</h3>
+        <div class="row row-comm">
+          <div>
+            <label for="cl2-bcxcount">Number of positive blood cultures (same organism)</label>
+            <input type="number" id="cl2-bcxcount" min="1" step="1" value="1" aria-describedby="cl2-bcxcount-help"/>
+            <div id="cl2-bcxcount-help" class="help">
+              NHSN requires ≥2 positive blood cultures with the same common commensal.
+              <a href="https://www.cdc.gov/nhsn/pdfs/checklists/2025-NHSN-Laboratory-Confirmed-Bloodstream-Infection-LCBI-Checklist.pdf" target="_blank" rel="noopener">[1] NHSN LCBI Checklist</a>
+            </div>
+          </div>
+          <div>
+            <fieldset class="fs">
+              <legend>Collected on separate occasions?</legend>
+              <div class="radio-row" id="cl2-sep-row">
+                <label><input type="radio" name="cl2-sep" value="Yes" /> Yes (same or consecutive days)</label>
+                <label><input type="radio" name="cl2-sep" value="No" checked/> No</label>
+              </div>
+              <p id="cl2-sep-help" class="help">
+                Cultures must be collected on separate occasions (same or consecutive days).
+                <a href="https://www.cdph.ca.gov/Programs/CHCQ/HAI/CDPH%20Document%20Library/2019_17h_CLABSI.Surveillance_Approved02.22.19.pdf" target="_blank" rel="noopener">[2] CDPH CLABSI Surveillance</a>
+              </p>
+            </fieldset>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" id="cl2-run">Calculate CLABSI</button>
+      <div id="cl2-result" role="status" aria-live="polite"></div>
+    </div>
+
+    <div id="cl2-info" class="note">Turn on <b>Enter dates now</b> to input dates. Other tabs remain available.</div>
+  </section>
+
+  <!-- CAUTI -->
+  <section class="panel" id="panel-cauti">
+    <h2>CAUTI</h2>
+    <div class="help">Enter urinary catheter information and symptoms for CAUTI risk and determination.</div>
+
+    <div class="toggle">
+      <input type="checkbox" id="cauti-enable" />
+      <label for="cauti-enable">Enter dates now</label>
+    </div>
+    <div id="cauti-form" style="display:none;">
+
+      <div class="row">
+        <div>
+          <label for="cu-insert">Indwelling urinary catheter insertion date</label>
+          <input type="date" id="cu-insert" aria-describedby="cu-insert-help"/>
+          <div id="cu-insert-help" class="help">Insertion day counts as Day 1. Eligible starting Day 3 (&gt;2 days).</div>
+        </div>
+        <div>
+          <label for="cu-assess">Assessment date</label>
+          <input type="date" id="cu-assess" aria-describedby="cu-assess-help"/>
+          <div id="cu-assess-help" class="help">Assessment date = first element used to meet UTI/CAUTI criterion (within IWP).</div>
+        </div>
+      </div>
+
+      <fieldset class="fs">
+        <legend>Device status on assessment date</legend>
+        <div class="radio-row" id="cu-inplace-row">
+          <label><input type="radio" name="cu-inplace" value="Yes" /> In place</label>
+          <label><input type="radio" name="cu-inplace" value="No" /> Not in place</label>
+        </div>
+      </fieldset>
+
+      <label for="cu-removal">Date of catheter removal</label>
+      <input type="date" id="cu-removal" aria-describedby="cu-removal-help"/>
+      <div id="cu-removal-help" class="help">If removed yesterday (assessment − 1), event can still be CAUTI-associated. If removed on assessment date, it WAS in place that date.</div>
+      <!-- NEW: CAUTI eligibility banner -->
+      <div id="cu-eligibility-banner" class="banner warn" style="display:none;" role="alert" aria-live="assertive">
+        Devices are only eligible if they are in for &gt; 2 calendar days.
+      </div>
+
+      <h3>Microbiology timing (recommended for IWP accuracy) <span class="pill">IWP: 7 days</span></h3>
+      <div class="radio-row">
+        <label><input type="checkbox" id="cu-use-ucx" checked /> Specify urine culture collection date (IWP anchor)</label>
+      </div>
+      <div id="cu-ucx-wrap">
+        <label for="cu-ucx">Urine culture collection date used for determination</label>
+        <input type="date" id="cu-ucx" />
+      </div>
+
+      <div class="divider"></div>
+      <h3>Signs &amp; Symptoms within IWP</h3>
+      <div id="cu-iwp-hint" class="help">(set assessment date or culture date)</div>
+
+      <div class="row">
+        <div>
+          <label for="cu-tempf">Highest documented temperature during IWP (°F)</label>
+          <input type="number" id="cu-tempf" step="0.1" min="80" max="113" value="98.6" inputmode="decimal" aria-describedby="cu-fever-help cu-tempc"/>
+          <div id="cu-fever-help" class="help">Fever threshold is strictly &gt; 38 °C (&gt; 100.4 °F). The app converts °F → °C and applies the strict rule.</div>
+          <div id="cu-tempc" class="muted"></div>
+        </div>
+        <div></div>
+      </div>
+
+      <fieldset class="fs">
+        <legend>Suprapubic tenderness</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cu-supra" value="Yes" /> Suprapubic tenderness</label>
+          <label><input type="radio" name="cu-supra" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+      <fieldset class="fs">
+        <legend>CVA pain/tenderness (flank pain)</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cu-cva" value="Yes" /> CVA pain/tenderness</label>
+          <label><input type="radio" name="cu-cva" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+
+      <fieldset class="fs">
+        <legend>Lower urinary tract symptoms</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cu-urg" value="Yes" /> Urgency</label>
+          <label><input type="radio" name="cu-urg" value="No" checked/> No</label>
+        </div>
+        <div class="radio-row">
+          <label><input type="radio" name="cu-freq" value="Yes" /> Frequency</label>
+          <label><input type="radio" name="cu-freq" value="No" checked/> No</label>
+        </div>
+        <div class="radio-row">
+          <label><input type="radio" name="cu-dys" value="Yes" /> Dysuria</label>
+          <label><input type="radio" name="cu-dys" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+
+      <div class="note" id="cu-catheter-in-place-note" style="display:none;">
+        Catheter is in place on the assessment date: urgency, frequency, and dysuria are excluded by NHSN.
+      </div>
+
+      <fieldset class="fs">
+        <legend>Urine culture result</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="cu-ucxpos" value="Yes" /> Positive urine culture</label>
+          <label><input type="radio" name="cu-ucxpos" value="No" checked/> No positive urine culture</label>
+        </div>
+      </fieldset>
+
+      <button class="btn" id="cu-run">Calculate CAUTI</button>
+      <div id="cu-result" role="status" aria-live="polite"></div>
+    </div>
+    <div id="cauti-info" class="note">Turn on <b>Enter dates now</b> to input dates. Other tabs (including Escalation) remain available.</div>
+  </section>
+
+  <!-- Blood Culture Escalation -->
+  <section class="panel" id="panel-blood">
+    <h2>Blood Culture Escalation</h2>
+    <div class="help">Use this quick pathway to determine whether to obtain a blood culture or escalate for leadership review.</div>
+
+    <fieldset class="fs">
+      <legend>Current device</legend>
+      <div class="radio-row">
+        <label><input type="radio" name="bc-hascvc" value="Yes" /> Patient currently has a CVC</label>
+        <label><input type="radio" name="bc-hascvc" value="No" checked/> No CVC</label>
+      </div>
+    </fieldset>
+
+    <div id="bc-when-yes">
+      <fieldset class="fs">
+        <legend>Admit &lt; 2 Calendar Days? <span class="legend-note text-red">(Admit Day Counts as Calendar Day 1)</span></legend>
+        <div class="radio-row">
+          <label><input type="radio" name="bc-recentadm" value="Yes" /> Yes</label>
+          <label><input type="radio" name="bc-recentadm" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+      <div class="result ok" id="bc-out-yes" style="display:none;" role="status" aria-live="polite"></div>
+    </div>
+
+    <div id="bc-when-no" style="display:none;">
+      <fieldset class="fs">
+        <legend>Recent CVC?</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="bc-recentcvc" value="Yes" /> Had a CVC within last 3 calendar days</label>
+          <label><input type="radio" name="bc-recentcvc" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+      <div class="result ok" id="bc-out-no" style="display:none;" role="status" aria-live="polite"></div>
+    </div>
+
+    <details>
+      <summary>Things to Remember</summary>
+      <ul>
+        <li>Does the patient have a wound? If yes, consider a wound culture.</li>
+        <li>Any fevers greater than 100.4 °F?</li>
+        <li>Hypotensive or tachycardic?</li>
+        <li>Any other known sources of infection?</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- Urine Culture Escalation -->
+  <section class="panel" id="panel-urine">
+    <h2>Urine Culture Escalation</h2>
+    <div class="help">Use this pathway to guide appropriate urine culture ordering and when to involve unit leadership.</div>
+
+    <fieldset class="fs">
+      <legend>Current device</legend>
+      <div class="radio-row">
+        <label><input type="radio" name="uc-hasfoley" value="Yes" /> Patient currently has a Foley catheter</label>
+        <label><input type="radio" name="uc-hasfoley" value="No" checked/> No Foley</label>
+      </div>
+    </fieldset>
+
+    <div id="uc-when-yes">
+      <fieldset class="fs">
+        <legend>Admit &lt; 2 Calendar Days? <span class="legend-note text-red">(Admit Day Counts as Calendar Day 1)</span></legend>
+        <div class="radio-row">
+          <label><input type="radio" name="uc-recentadm" value="Yes" /> Yes</label>
+          <label><input type="radio" name="uc-recentadm" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+      <div class="result ok" id="uc-out-yes" style="display:none;" role="status" aria-live="polite"></div>
+    </div>
+
+    <div id="uc-when-no" style="display:none;">
+      <fieldset class="fs">
+        <legend>Recent Foley?</legend>
+        <div class="radio-row">
+          <label><input type="radio" name="uc-recentfoley" value="Yes" /> Foley within last 3 calendar days</label>
+          <label><input type="radio" name="uc-recentfoley" value="No" checked/> No</label>
+        </div>
+      </fieldset>
+      <div class="result ok" id="uc-out-no" style="display:none;" role="status" aria-live="polite"></div>
+    </div>
+
+    <details>
+      <summary>Things to Remember</summary>
+      <ul>
+        <li>Are urinary symptoms present (dysuria, suprapubic pain, flank pain)?</li>
+        <li>Any systemic signs (fever, hypotension, tachycardia)?</li>
+        <li>Could this represent asymptomatic bacteriuria?</li>
+        <li>Is there another identifiable source of infection?</li>
+      </ul>
+    </details>
+  </section>
+
+<!-- INSERT 2: C. diff Ticket panel -->
+<section class="panel" id="panel-cdiff">
+  <h2>C. diff “Ticket to Test”</h2>
+
+  <!-- Add the class 'compact-links' so links are short and tidy -->
+<div class="help compact-links"> 
+    <a href="GMH-Cdiff-Ticket.docx" download> Download GMH C. diff Ticket (.docx)</a> </div>
+
+  <fieldset class="fs">
+    <legend>Dates</legend>
+    <div class="row">
+      <div>
+        <label for="cd-admit">Admission date</label>
+        <input type="date" id="cd-admit" />
+      </div>
+      <div>
+        <label for="cd-collect">Planned stool collection date</label>
+        <input type="date" id="cd-collect" />
+      </div>
+    </div>
+    <div class="help" id="cd-hospday-hint">(hospitalization day will be calculated)</div>
+    <!-- Day ≥4 banner -->
+    <div id="cd-day4-banner" class="banner warn" style="display:none;" role="alert" aria-live="assertive">
+      Stool collection on hospital day ≥ 4 — discuss with the ordering provider before collecting. 
+    </div>
+  </fieldset>
+
+  <div class="divider"></div>
+
+  <h3>Diarrhea & stool characteristics</h3>
+  <fieldset class="fs">
+    <legend>New onset diarrhea</legend>
+    <div class="radio-row">
+      <label><input type="radio" name="cd-newdiarrhea" value="Yes"> Yes — new onset</label>
+      <label><input type="radio" name="cd-newdiarrhea" value="No" checked> No / unclear</label>
+    </div>
+  </fieldset>
+  <fieldset class="fs">
+    <legend>Unformed stools (last 24 h)</legend>
+    <label for="cd-stoolcount">Number of unformed stools (conform to container)</label>
+    <input type="number" id="cd-stoolcount" min="0" step="1" value="0" />
+    <div class="help">Testing typically requires ≥ 3 unformed stools within 24 h.
+</div>
+  </fieldset>
+  <fieldset class="fs">
+    <legend>Bristol Stool Chart type</legend>
+    <div class="radio-row">
+      <label><input type="radio" name="cd-bristol" value="1"> 1</label>
+      <label><input type="radio" name="cd-bristol" value="2"> 2</label>
+      <label><input type="radio" name="cd-bristol" value="3"> 3</label>
+      <label><input type="radio" name="cd-bristol" value="4"> 4</label>
+      <label><input type="radio" name="cd-bristol" value="5"> 5</label>
+      <label><input type="radio" name="cd-bristol" value="6"> 6</label>
+      <label><input type="radio" name="cd-bristol" value="7"> 7</label>
+    </div>
+    <div class="help">C. diff testing is most appropriate with stool types 6–7.
+    </div>
+  </fieldset>
+
+  <div class="divider"></div>
+
+  <h3>Other symptoms (supportive)</h3>
+  <fieldset class="fs">
+    <legend>Check all that apply (optional)</legend>
+    <div class="radio-row">
+      <label><input type="checkbox" id="cd-sx-wbc"> Increased WBCs</label>
+      <label><input type="checkbox" id="cd-sx-pain"> Abdominal pain</label>
+      <label><input type="checkbox" id="cd-sx-fever"> Fever</label>
+    </div>
+  </fieldset>
+
+  <div class="divider"></div>
+
+  <h3>Potential confounders / alternatives</h3>
+  <fieldset class="fs">
+    <legend>Recent meds / prep</legend>
+    <div class="radio-row">
+      <label><input type="checkbox" id="cd-lax-24h"> Laxatives or stool softeners in last 24 h</label>
+      <label><input type="checkbox" id="cd-prep-48h"> Bowel prep or enema in last 48 h</label>
+    </div>
+    <div class="radio-row" style="margin-top:8px;">
+      <label><input type="checkbox" id="cd-ppi"> Proton Pump Inhibitor</label>
+      <label><input type="checkbox" id="cd-mgo"> Magnesium oxide ≥ 800 mg/day</label>
+      <label><input type="checkbox" id="cd-abx"> Antibiotics (current or recent)</label>
+    </div>
+    <div class="radio-row" style="margin-top:8px;">
+      <label><input type="checkbox" id="cd-ibd"> IBS / Crohn’s / Ulcerative Colitis</label>
+    </div>
+    <div class="radio-row" style="margin-top:8px;">
+      <label><input type="checkbox" id="cd-tube"> Tube feedings (recent formula/rate change?)</label>
+    </div>
+    <div class="help">
+      These factors can cause or contribute to diarrhea; consider before testing. 
+    </div>
+  </fieldset>
+
+  <div class="divider"></div>
+
+  <h3>Prior C. diff testing</h3>
+  <fieldset class="fs">
+    <legend>Recent results</legend>
+    <div class="radio-row">
+      <label><input type="checkbox" id="cd-pos-30d"> Positive C. diff (GDH/Toxin/PCR) in last 30 days</label>
+      <label><input type="checkbox" id="cd-neg-7d"> Negative C. diff in last 7 days</label>
+    </div>
+    <div class="help">
+      If positive within 30 days and symptomatic, provider may treat without re-testing; if no symptoms, avoid testing and treating. Avoid re-testing within 7 days unless symptoms worsen.
+    </div>
+  </fieldset>
+
+  <div class="divider"></div>
+
+<!-- BEGIN: Printable area -->
+<div id="cd-print-area">
+
+  <h3>Team attestation</h3>
+  <div class="row">
+    <div>
+      <label for="cd-nurse">Primary Nurse Name</label>
+      <input type="text" id="cd-nurse" placeholder="Name" />
+    </div>
+    <div>
+      <label for="cd-charge">Charge Nurse Signature</label>
+      <input type="text" id="cd-charge" placeholder="Signature" />
+    </div>
+  </div>
+
+  <!-- ONE button block only -->
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+    <button class="btn" id="cd-run">Evaluate Ticket</button>
+    <button class="btn" id="cd-print" type="button">Print / Save PDF</button>
+  </div>
+
+  <!-- ONE result container only -->
+  <div id="cd-result" role="status" aria-live="polite"></div>
+
+  <details style="margin-top:12px;">
+    <summary>Notes</summary>
+    <ul>
+      <li>This tool supports GMH/NHSN-aligned policy workflows and does not replace clinical judgment or hospital policy.</li>
+    </ul>
+  </details>
+
+</div>
+<!-- END: Printable area -->
+</section> <!-- end: panel-cdiff -->
+
+<section class="panel" id="panel-ssi">
+  <h2>SSI Risk (NHSN)</h2>
+  <div class="help">
+    NHSN‑aligned decision support for evaluating potential Surgical Site Infections.
+    Select the NHSN operative procedure and enter dates, then choose the deepest tissue level and applicable criteria.
+  </div>
+
+  <!-- Quick access to the official ACS calculator (opens in new tab per ACS permitted use) -->
+  <div class="note" style="margin-top:10px;">
+    For patient‑specific surgical risk estimates (shared decision‑making / informed consent),
+    open the official <b>ACS NSQIP Surgical Risk Calculator</b> in a new tab:
+    <div style="margin-top:8px;">
+      <a class="btn" href="https://riskcalculator.facs.org/" target="_blank" rel="noopener">
+        Open ACS NSQIP Calculator ↗
+      </a>
+    </div>
+    <div class="help">
+      Per ACS permitted use, external platforms may open the calculator in a new window/tab; embedding or automating it is not allowed. 
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+<!-- ===== PATOS (collapsible) ===== -->
+<details id="ssi-patos-box" class="note" style="border-left-color:#B32572; margin-top:16px;">
+  <summary style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;">
+    <span style="font-weight:700;">PATOS — Infection Present at Time of Surgery (NHSN)</span>
+    <span class="help" style="margin:0; font-size:12px;">(click for information)</span>
+  </summary>
+
+  <div class="help" style="margin-top:10px;">
+    <p><strong>Definition:</strong>
+      PATOS is used when the surgeon <em>explicitly documents that infection was visualized</em>
+      during the NHSN operative procedure—e.g., pus/abscess/infected tissue/gross contamination.
+      If the note does not clearly say infection was seen, do not assign PATOS. <sup>[1]</sup> 
+    </p>
+
+    <p><strong>Meets PATOS (examples):</strong></p>
+    <ul>
+      <li>“Purulence encountered,” “frank pus present,” “abscess identified in the wound.” <sup>[1]</sup></li>
+      <li>“Gross contamination from perforated viscus” (e.g., perforated appendix with pus). <sup>[1]</sup></li>
+      <li>“Infected tissue observed” (e.g., osteomyelitis seen intra‑operatively). <sup>[1]</sup></li>
+    </ul>
+
+    <p><strong>Does <em>not</em> meet PATOS:</strong></p>
+    <ul>
+      <li>Only a suspicion or plan to treat infection; no intra‑op documentation of visible infection. <sup>[1]</sup></li>
+      <li>Positive cultures alone (pre‑op, intra‑op, or post‑op) without a description of infection seen. <sup>[1]</sup></li>
+    </ul>
+
+    <p><strong>Key NHSN notes:</strong></p>
+    <ul>
+      <li>PATOS applies only to the <em>index</em> NHSN operative procedure when infection is seen and documented at surgery. <sup>[1]</sup></li>
+      <li>PATOS SSIs remain reportable; PATOS affects NHSN analysis/categorization (e.g., certain SIR handling). <sup>[1]</sup></li>
+    </ul>
+
+    <!-- Footnotes -->
+    <div style="font-size:12px; margin-top:10px; border-top:1px solid #e5e7eb; padding-top:6px;">
+      <strong>Footnotes</strong><br>
+      [1] CDC NHSN Surgical Site Infection Protocol (Chapter 9) and CDC SSI Checklist (PATOS guidance). 
+      See: CDC SSI Protocol PDF (“Surgical Site Infection Event”) and 2025 SSI Checklist. [1](https://apic.org/Resource_/TinyMceFileManager/Academy/ASC_101_resources/Surveillance_NHSN/NHSN_9pscSSIcurrent_jan2015.pdf)
+    </div>
+  </div>
+</details>
+
+
+  <!-- Procedure & dates -->
+  <fieldset class="fs">
+    <legend>Procedure & Dates</legend>
+    <div class="row">
+      <div>
+        <label for="ssi-proc">NHSN procedure category</label>
+        <select id="ssi-proc"></select>
+        <div id="ssi-proc-help" class="help">
+          The selected category determines the 30‑ vs 90‑day surveillance period (superficial incisional is always 30 days).
+<!-- Specific procedures within the selected category (optional) -->
+<label for="ssi-proc-specific" style="margin-top:10px;">Specific procedure (optional)</label>
+<select id="ssi-proc-specific" disabled></select>
+<div id="ssi-proc-specific-help" class="help">
+  Filtered from CDC’s ICD‑10‑PCS/CPT → NHSN mapping for the chosen category/year.
+  (Use for documentation clarity; SSI calculation remains based on NHSN category.)
+</div>
+        </div>
+      </div>
+      <div>
+        <label for="ssi-procdate">Date of procedure</label>
+        <input type="date" id="ssi-procdate" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="ssi-eventdate">Date of first qualifying element (DOE)</label>
+        <input type="date" id="ssi-eventdate" />
+        <div id="ssi-window-hint" class="help">(surveillance window will be calculated)</div>
+      </div>
+      <div>
+        <label for="ssi-depth">Deepest tissue level involved</label>
+        <div class="radio-row" id="ssi-depth">
+          <label><input type="radio" name="ssi-depth" value="superficial" /> Superficial incisional</label>
+          <label><input type="radio" name="ssi-depth" value="deep" /> Deep incisional</label>
+          <label><input type="radio" name="ssi-depth" value="orgspace" /> Organ/Space</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timing banner -->
+    <div id="ssi-window-banner" class="banner warn" style="display:none;" role="alert" aria-live="assertive">
+      Event date appears outside the NHSN surveillance window for this procedure.
+    </div>
+  </fieldset>
+
+  <div class="divider"></div>
+
+  <!-- Superficial criteria -->
+  <div id="ssi-crit-superficial" style="display:none;">
+    <h3>Superficial Incisional — Criteria</h3>
+    <div class="help">
+      DOE within 30 days of procedure; involves only skin/subcutaneous tissue; then any ONE of the elements below.
+    </div>
+    <fieldset class="fs">
+      <legend>Elements</legend>
+      <div class="radio-row">
+        <label><input type="checkbox" id="si-pus" /> Purulent drainage from superficial incision</label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="si-cx" /> Organism from aseptically obtained incisional/subcutaneous specimen (culture or non‑culture based)</label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="si-open" />
+          Superficial incision deliberately opened or <b>re‑accessed</b> by surgeon/physician/designee AND no testing performed AND has ≥1: pain/tenderness, swelling, erythema, heat
+        </label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="si-dx" /> Physician/PA/NP diagnosis of superficial incisional SSI</label>
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- Deep criteria -->
+  <div id="ssi-crit-deep" style="display:none;">
+    <h3>Deep Incisional — Criteria</h3>
+    <div class="help">
+      DOE within 30 or 90 days (by category); involves deep soft tissues (fascia/muscle); then any ONE of the elements below.
+    </div>
+    <fieldset class="fs">
+      <legend>Elements</legend>
+      <div class="radio-row">
+        <label><input type="checkbox" id="di-pus" /> Purulent drainage from deep incision</label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="di-open" />
+          Deep incision deliberately opened, <b>re‑accessed</b>, aspirated, or spontaneously dehisces AND
+          (organism identified from deep soft tissue <i>or</i> no testing) AND fever (&gt;38&nbsp;°C) or localized pain/tenderness
+        </label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="di-abscess" /> Abscess or other evidence of infection of the deep incision on gross exam / histopathology / imaging</label>
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- Organ/Space criteria -->
+  <div id="ssi-crit-orgspace" style="display:none;">
+    <h3>Organ/Space — Criteria</h3>
+    <div class="help">
+      DOE within 30 or 90 days (by category); involves organ/space (deeper than fascia/muscle); then any ONE below AND meets a site‑specific criterion.
+    </div>
+    <fieldset class="fs">
+      <legend>Elements</legend>
+      <div class="radio-row">
+        <label><input type="checkbox" id="os-pus" /> Purulent drainage from a drain placed into the organ/space</label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="os-cx" /> Organism(s) from organ/space fluid or tissue (culture or non‑culture based) </label>
+      </div>
+      <div class="radio-row">
+        <label><input type="checkbox" id="os-abscess" /> Abscess / other evidence of organ/space infection (gross exam, histopathology, or imaging)</label>
+      </div>
+    </fieldset>
+
+    <fieldset class="fs" style="margin-top:10px;">
+      <legend>Site‑specific requirement</legend>
+      <label for="os-site">Select site (Chapter 17)</label>
+      <select id="os-site"></select>
+      <div class="radio-row" style="margin-top:6px;">
+        <label><input type="checkbox" id="os-site-met" /> Team confirms site‑specific criterion is met (per Chapter 17)</label>
+      </div>
+      <div class="help">Organ/Space SSI requires meeting a site‑specific definition (e.g., IAB, OREP, PJI). Use documentation to support this selection.</div>
+    </fieldset>
+  </div>
+
+  <button class="btn" id="ssi-run">Calculate SSI</button>
+  <div id="ssi-result" role="status" aria-live="polite"></div>
+</section>
+
+
+
+<!-- FEEDBACK -->
+<section class="panel" id="panel-feedback">
+  <h2>Give Feedback</h2>
+  <div class="help">Help us improve the HAI Tool. Please avoid including any patient identifiers or PHI.</div>
+
+  <!-- Embedded Microsoft Form -->
+  <div style="margin-top:10px;">
+    <iframe
+      id="feedbackFormFrame"
+      class="feedback-frame"
+      src="https://forms.office.com/Pages/ResponsePage.aspx?id=n4yZReRvOEqPEfiKcxx-LZIvkyloy41EveLnqCxNkw1UQzRUSFhZQTYwUzIyOFZOOTU5MU9YMEVWNi4u&embed=true"
+      title="HAI Tool Feedback Form"
+      loading="lazy"
+      allowfullscreen
+      webkitallowfullscreen
+      mozallowfullscreen
+      msallowfullscreen
+    ></iframe>
+  </div>
+
+  <!-- Fallback: open in a new tab -->
+  <div style="margin-top:12px;">
+    <a
+      class="btn"
+      href="https://forms.office.com/Pages/ResponsePage.aspx?id=n4yZReRvOEqPEfiKcxx-LZIvkyloy41EveLnqCxNkw1UQzRUSFhZQTYwUzIyOFZOOTU5MU9YMEVWNi4u"
+      target="_blank" rel="noopener"
+    >
+      Open Feedback Form
+    </a>
+  </div>
+
+  <!-- QR image for mobile -->
+  <div style="margin-top:14px;">
+    <img src="feedback-qr.png" alt="QR code to open the HAI Tool Feedback form" class="feedback-qr" />
+    <div class="help">Scan with your phone’s camera to open the same form.</div>
+  </div>
+</section>
+
+
+  <footer class="caption">
+    This tool supports NHSN-aligned reconciliation and policy workflows and does not replace clinical judgment or hospital policy.
+  </footer>
+</div>
+
+<script>
+/* ========= Config ========= */
+const BLOOD_LEADERSHIP_LABEL = "Unit Leadership";
+const URINE_LEADERSHIP_LABEL = "Unit Leadership";
+
+/* ========= Utilities ========= */
+function el(id){ return document.getElementById(id); }
+function fmtDate(d){
+  if(!d) return "";
+  const fmts = new Intl.DateTimeFormat(undefined, {month:'short', day:'2-digit', year:'numeric'});
+  return fmts.format(d);
+}
+function parseDateInput(id){
+  const v = el(id).value;
+  if(!v) return null;
+  const d = new Date(v + "T00:00:00");
+  return isNaN(d.getTime()) ? null : d;
+}
+function daysInclusive(start, end){
+  if(!start || !end) return 0;
+  const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  if(s > e) return 0;
+  const ms = e - s;
+  return Math.floor(ms/86400000) + 1;
+}
+function addDays(d, n){
+  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  t.setDate(t.getDate()+n);
+  return t;
+}
+function iwpText(anchor){
+  if(!anchor) return "(set assessment date or culture date)";
+  const start = addDays(anchor, -3), end = addDays(anchor, 3);
+  return `(IWP: ${fmtDate(start)} – ${fmtDate(end)})`;
+}
+function fToC(f){ return (f - 32) * 5/9; }
+
+/* ========= Tabs ========= */
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(t => {
+  t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const name = t.getAttribute('data-tab');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el('panel-' + name).classList.add('active');
+  });
+});
+
+/* ========= CLABSI ========= */
+el('clabsi-enable').addEventListener('change', e=>{
+  el('clabsi-form').style.display = e.target.checked ? 'block' : 'none';
+  el('clabsi-info').style.display = e.target.checked ? 'none' : 'block';
+  updateClabsiEligibilityBanner(); /* NEW */
+});
+document.querySelectorAll('#cl-inplace-row input[type=radio]').forEach(r=>{
+  r.addEventListener('change', ()=>{
+    const val = document.querySelector('input[name="cl-inplace"]:checked')?.value;
+    el('cl-removal-wrap').style.display = (val === 'No') ? 'block' : 'none';
+    updateClabsiEligibilityBanner(); /* NEW */
+  });
+});
+el('cl-use-bcx').addEventListener('change', e=>{
+  el('cl-bcx-wrap').style.display = e.target.checked ? 'block' : 'none';
+  updateCL_IWPLabel();
+});
+
+['cl-assess','cl-bcx'].forEach(id=>{
+  const n = el(id);
+  n && n.addEventListener('change', updateCL_IWPLabel);
+});
+el('cl-tempf').addEventListener('input', ()=>{
+  const f = parseFloat(el('cl-tempf').value||0);
+  el('cl-tempc').textContent = `≈ ${(fToC(f)).toFixed(1)} °C`;
+});
+
+/* NEW: Show CLABSI banner when insertion→removal days ≤ 2 */
+function updateClabsiEligibilityBanner(){
+  const banner = el('cl-eligibility-banner');
+  if(!banner) return;
+  const inplace = (document.querySelector('input[name="cl-inplace"]:checked')?.value === 'Yes');
+  if (inplace) { banner.style.display = 'none'; return; }
+  const ins = parseDateInput('cl-insert');
+  const removal = parseDateInput('cl-removal');
+  if (!ins || !removal || ins > removal) { banner.style.display = 'none'; return; }
+  const clDays = daysInclusive(ins, removal);
+  const notEligible = clDays <= 2; // eligible if > 2 calendar days
+  banner.style.display = notEligible ? 'block' : 'none';
+}
+
+/* Also listen to insert/removal date changes for CLABSI */
+['cl-insert','cl-removal'].forEach(id=>{
+  const n = el(id);
+  n && n.addEventListener('change', updateClabsiEligibilityBanner);
+});
+
+function updateCL_IWPLabel(){
+  const useBcx = el('cl-use-bcx').checked;
+  const anchor = useBcx ? parseDateInput('cl-bcx') : parseDateInput('cl-assess');
+  el('cl-iwp-hint').textContent = iwpText(anchor);
+}
+
+el('cl-run').addEventListener('click', ()=>{
+  const ins = parseDateInput('cl-insert');
+  const asmt = parseDateInput('cl-assess');
+  const inplace = document.querySelector('input[name="cl-inplace"]:checked')?.value || 'No';
+  let removal = null;
+  if(inplace === 'No'){
+    removal = parseDateInput('cl-removal');
+  }
+  const useBcx = el('cl-use-bcx').checked;
+  const bcx = useBcx ? parseDateInput('cl-bcx') : null;
+
+  const errors = [];
+  const effectiveEnd = (inplace === 'Yes') ? asmt : (removal || asmt);
+  if(!ins || !asmt){ errors.push("Please enter insertion and assessment dates."); }
+  if(ins && asmt && ins > asmt){ errors.push("Insertion date cannot be after the assessment date."); }
+  if(ins && effectiveEnd && ins > effectiveEnd){ errors.push("Insertion date cannot be after the removal/assessment date."); }
+  if(errors.length){
+    el('cl-result').innerHTML = `<div class="result err">${errors.join('<br>')}</div>`;
+    return;
+  }
+
+  // Infer in-place if removal equals assessment date
+  let inPlaceFlag = (inplace === 'Yes');
+  if(!inPlaceFlag && removal && asmt && (removal.getTime() === asmt.getTime())){
+    inPlaceFlag = true;
+  }
+
+  const clDays = daysInclusive(ins, effectiveEnd);
+  const eligible = clDays > 2; // eligible starting Day 3
+
+  // device-associated: in place on assessment OR removed the calendar day before
+  let devAssoc = false;
+  if(inPlaceFlag){ devAssoc = true; }
+  else if(removal && asmt){
+    const yest = addDays(asmt, -1);
+    devAssoc = (removal.getTime() === yest.getTime());
+  }
+
+  const anchor = bcx || asmt;
+  el('cl-iwp-hint').textContent = iwpText(anchor);
+
+  const f = parseFloat(el('cl-tempf').value||0);
+  const c = fToC(f);
+  const fever = c > 38.0; // strictly >
+  const hypo = (document.querySelector('input[name="cl-hypo"]:checked')?.value === 'Yes');
+  const chills = (document.querySelector('input[name="cl-chills"]:checked')?.value === 'Yes');
+  const bcxPos = (document.querySelector('input[name="cl-bcxpos"]:checked')?.value === 'Yes');
+  const symptomAny = fever || hypo || chills;
+
+  const meets = (bcxPos && eligible && devAssoc);
+
+  // Render summary
+  let html = '';
+  html += `<div class="kv"><span class="k">Insertion date:</span> ${ins ? ins.toISOString().slice(0,10) : ''}</div>`;
+  html += `<div class="kv"><span class="k">Assessment date:</span> ${asmt ? asmt.toISOString().slice(0,10) : ''}</div>`;
+  if(removal){ html += `<div class="kv"><span class="k">Central line removal date:</span> ${removal.toISOString().slice(0,10)}</div>`; }
+  if(bcx){ html += `<div class="kv"><span class="k">First positive blood culture date (IWP anchor):</span> ${bcx.toISOString().slice(0,10)}</div>`; }
+  html += `<div class="kv"><span class="k">IWP for symptom eligibility:</span> ${iwpText(anchor)} <span class="muted">(7 day window: anchor date ± 3 days)</span></div>`;
+  html += `<div class="kv"><span class="k">Central line days (calendar days):</span> ${clDays}</div>`;
+  html += `<div class="kv"><span class="k">NHSN device-day eligibility (&gt;2 days):</span> ${eligible}</div>`;
+  html += `<div class="kv"><span class="k">Device association (in place on assessment or removed yesterday):</span> ${devAssoc}</div>`;
+
+  if(meets){
+    html += `<div class="result err"><b>Patient meets NHSN CLABSI Criteria</b> (as of assessment date).</div>`;
+  }else if(symptomAny){
+    html += `<div class="result warn"><b>At risk</b> — symptoms within IWP; continue evaluation and monitoring.</div>`;
+  }else{
+    html += `<div class="result ok"><b>Patient does not meet NHSN CLABSI Criteria</b> (as of assessment date).</div>`;
+  }
+
+  if(!meets){
+    const reasons = [];
+    if(!bcxPos) reasons.push("No positive blood culture.");
+    if(!eligible) reasons.push("Not eligible (&gt;2 central-line days) by assessment date (eligible starting Day 3).");
+    if(!devAssoc) reasons.push("Not device-associated (not in place on assessment date or removed day before).");
+    if(reasons.length){
+      html += `<div class="note"><b>Reason(s) criteria not met:</b> ${reasons.join(" ")}</div>`;
+    }
+  }
+
+  el('cl-result').innerHTML = html;
+});
+
+/* ========= CLABSI 2: Organism Lists ========= */
+const CL2_PATHOGENS = [
+  "Staphylococcus aureus",
+  "Enterococcus faecalis",
+  "Enterococcus faecium",
+  "Streptococcus pneumoniae",
+  "Escherichia coli",
+  "Klebsiella pneumoniae",
+  "Klebsiella oxytoca",
+  "Enterobacter cloacae complex",
+  "Serratia marcescens",
+  "Proteus mirabilis",
+  "Pseudomonas aeruginosa",
+  "Acinetobacter baumannii",
+  "Stenotrophomonas maltophilia",
+  "Bacteroides fragilis",
+  "Clostridium perfringens",
+  "Fusobacterium nucleatum",
+  "Candida albicans",
+  "Candida glabrata",
+  "Candida parapsilosis",
+  "Candida tropicalis",
+  "Candida krusei"
+];
+
+/* Common commensals (skin flora) — require ≥2 positive cultures on separate occasions + symptoms */
+const CL2_SKIN_FLORA = new Set([
+  "Staphylococcus epidermidis",
+  "Staphylococcus hominis",
+  "Staphylococcus capitis",
+  "Staphylococcus saprophyticus",
+  "Corynebacterium striatum",
+  "Corynebacterium jeikeium",
+  "Corynebacterium amycolatum",
+  "Cutibacterium acnes",
+  "Bacillus cereus",
+  "Bacillus subtilis",
+  "Bacillus licheniformis",
+  "Micrococcus luteus",
+  "Aerococcus urinae"
+]);
+
+const CL2_ORGANISM_OPTIONS = [
+  ...Array.from(CL2_SKIN_FLORA.values()),
+  ...CL2_PATHOGENS
+];
+
+/* ========= CLABSI 2: Helpers ========= */
+function updateCL2_IWPLabel(){
+  const useBcx = el('cl2-use-bcx')?.checked;
+  const anchor = useBcx ? parseDateInput('cl2-bcx') : parseDateInput('cl2-assess');
+  if (el('cl2-iwp-hint')) el('cl2-iwp-hint').textContent = iwpText(anchor);
+}
+function initCL2OrganismDropdown(){
+  const sel = el('cl2-organism');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">Select organism…</option>' +
+    CL2_ORGANISM_OPTIONS.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+function getCL2BcxPos(){
+  return (document.querySelector('input[name="cl2-bcxpos"]:checked')?.value === 'Yes');
+}
+function updateCL2OrganismUI(){
+  const org = el('cl2-organism')?.value || '';
+  const isSkin = CL2_SKIN_FLORA.has(org);
+  const sx = el('cl2-sx-wrap');
+  if(sx) sx.style.display = isSkin ? 'block' : 'none';
+
+  // Show commensal culture requirement controls only if skin flora AND positive BCx = Yes
+  const comm = el('cl2-comm-wrap');
+  if(comm) comm.style.display = (isSkin && getCL2BcxPos()) ? 'block' : 'none';
+}
+
+/* NEW: Show CLABSI2 banner when insertion→removal days ≤ 2 */
+function updateClabsi2EligibilityBanner(){
+  const banner = el('cl2-eligibility-banner');
+  if(!banner) return;
+  const inplace = (document.querySelector('input[name="cl2-inplace"]:checked')?.value === 'Yes');
+  if (inplace) { banner.style.display = 'none'; return; }
+  const ins = parseDateInput('cl2-insert');
+  const removal = parseDateInput('cl2-removal');
+  if (!ins || !removal || ins > removal) { banner.style.display = 'none'; return; }
+  const clDays = daysInclusive(ins, removal);
+  const notEligible = clDays <= 2; // eligible if > 2 calendar days
+  banner.style.display = notEligible ? 'block' : 'none';
+}
+
+/* ========= CLABSI 2: Wire up UI ========= */
+el('cl2-enable')?.addEventListener('change', e=>{
+  el('cl2-form').style.display = e.target.checked ? 'block' : 'none';
+  el('cl2-info').style.display = e.target.checked ? 'none' : 'block';
+  updateClabsi2EligibilityBanner(); /* NEW */
+});
+
+document.querySelectorAll('#cl2-inplace-row input[type=radio]').forEach(r=>{
+  r.addEventListener('change', ()=>{
+    const val = document.querySelector('input[name="cl2-inplace"]:checked')?.value;
+    el('cl2-removal-wrap').style.display = (val === 'No') ? 'block' : 'none';
+    updateClabsi2EligibilityBanner(); /* NEW */
+  });
+});
+
+el('cl2-use-bcx')?.addEventListener('change', e=>{
+  el('cl2-bcx-wrap').style.display = e.target.checked ? 'block' : 'none';
+  updateCL2_IWPLabel();
+});
+
+['cl2-assess','cl2-bcx'].forEach(id=>{
+  const n = el(id);
+  n && n.addEventListener('change', updateCL2_IWPLabel);
+});
+
+el('cl2-tempf')?.addEventListener('input', ()=>{
+  const f = parseFloat(el('cl2-tempf').value||0);
+  el('cl2-tempc').textContent = `≈ ${(fToC(f)).toFixed(1)} °C`;
+});
+
+el('cl2-organism')?.addEventListener('change', updateCL2OrganismUI);
+// React to positive BCx toggle for showing commensal fields
+document.querySelectorAll('input[name="cl2-bcxpos"]').forEach(r=>{
+  r.addEventListener('change', updateCL2OrganismUI);
+});
+
+initCL2OrganismDropdown();
+
+/* ========= CLABSI 2: Run logic ========= */
+el('cl2-run')?.addEventListener('click', ()=>{
+  const ins = parseDateInput('cl2-insert');
+  const asmt = parseDateInput('cl2-assess');
+  const inplace = document.querySelector('input[name="cl2-inplace"]:checked')?.value || 'No';
+  let removal = null;
+  if(inplace === 'No'){
+    removal = parseDateInput('cl2-removal');
+  }
+  const useBcx = el('cl2-use-bcx')?.checked;
+  const bcx = useBcx ? parseDateInput('cl2-bcx') : null;
+
+  const errors = [];
+  const effectiveEnd = (inplace === 'Yes') ? asmt : (removal || asmt);
+  if(!ins || !asmt){ errors.push("Please enter insertion and assessment dates."); }
+  if(ins && asmt && ins > asmt){ errors.push("Insertion date cannot be after the assessment date."); }
+  if(ins && effectiveEnd && ins > effectiveEnd){ errors.push("Insertion date cannot be after the removal/assessment date."); }
+
+  if(errors.length){
+    el('cl2-result').innerHTML = `<div class="result err">${errors.join('<br>')}</div>`;
+    return;
+  }
+
+  // Infer in place if removal equals assessment date
+  let inPlaceFlag = (inplace === 'Yes');
+  if(!inPlaceFlag && removal && asmt && (removal.getTime() === asmt.getTime())){
+    inPlaceFlag = true;
+  }
+
+  const clDays = daysInclusive(ins, (inPlaceFlag ? asmt : (removal || asmt)));
+  const eligible = clDays > 2;
+
+  // device-associated: in place on assessment OR removed yesterday
+  let devAssoc = false;
+  if(inPlaceFlag){ devAssoc = true; }
+  else if(removal && asmt){
+    devAssoc = (removal.getTime() === addDays(asmt,-1).getTime());
+  }
+
+  const anchor = bcx || asmt;
+  if (el('cl2-iwp-hint')) el('cl2-iwp-hint').textContent = iwpText(anchor);
+
+  const org = el('cl2-organism')?.value || '';
+  const isSkinFlora = CL2_SKIN_FLORA.has(org);
+
+  const f = parseFloat(el('cl2-tempf')?.value || 0);
+  const c = fToC(f);
+  const fever = c > 38.0; // strictly >
+  const hypo = (document.querySelector('input[name="cl2-hypo"]:checked')?.value === 'Yes');
+  const chills = (document.querySelector('input[name="cl2-chills"]:checked')?.value === 'Yes');
+  const symptomAny = fever || hypo || chills;
+
+  const bcxPos = (document.querySelector('input[name="cl2-bcxpos"]:checked')?.value === 'Yes');
+
+  // Commensal culture requirements (only meaningful if skin flora & positive BCx)
+  const bcxCount = parseInt(el('cl2-bcxcount')?.value || '0', 10);
+  const sepYes = (document.querySelector('input[name="cl2-sep"]:checked')?.value === 'Yes');
+
+  // Meets logic
+  let meets;
+  if(isSkinFlora){
+    const commensalOK = (bcxPos && bcxCount >= 2 && sepYes && symptomAny);
+    meets = (eligible && devAssoc && commensalOK);
+  } else {
+    meets = (bcxPos && eligible && devAssoc);
+  }
+
+  // Render summary
+  let html = '';
+  html += `<div class="kv"><span class="k">Insertion date:</span> ${ins ? ins.toISOString().slice(0,10) : ''}</div>`;
+  html += `<div class="kv"><span class="k">Assessment date:</span> ${asmt ? asmt.toISOString().slice(0,10) : ''}</div>`;
+  if(removal){ html += `<div class="kv"><span class="k">Central line removal date:</span> ${removal.toISOString().slice(0,10)}</div>`; }
+  if(bcx){ html += `<div class="kv"><span class="k">First positive blood culture date (IWP anchor):</span> ${bcx.toISOString().slice(0,10)}</div>`; }
+  if(org){ html += `<div class="kv"><span class="k">Organism selected:</span> ${org} ${isSkinFlora ? '<span class="pill">skin flora</span>' : ''}</div>`; }
+  html += `<div class="kv"><span class="k">IWP for symptom eligibility:</span> ${iwpText(anchor)} <span class="muted">(7 day window: anchor date ± 3 days)</span></div>`;
+  html += `<div class="kv"><span class="k">Central line days (calendar days):</span> ${clDays}</div>`;
+  html += `<div class="kv"><span class="k">NHSN device-day eligibility (&gt;2 days):</span> ${eligible}</div>`;
+  html += `<div class="kv"><span class="k">Device association (in place on assessment or removed yesterday):</span> ${devAssoc}</div>`;
+
+  if(isSkinFlora){
+    html += `<div class="kv"><span class="k">Commensal culture summary:</span> ${bcxPos ? `${bcxCount} positive culture(s), ${sepYes ? 'separate occasions' : 'not separate occasions'}` : 'no positive cultures'}</div>`;
+    html += `<div class="kv"><span class="k">Symptoms required for commensals:</span> ${symptomAny}</div>`;
+  }
+
+  if(meets){
+    html += `<div class="result err"><b>Patient meets NHSN CLABSI Criteria</b> (as of assessment date).</div>`;
+  } else if((isSkinFlora && symptomAny) || (!isSkinFlora && (fever || hypo || chills))){
+    html += `<div class="result warn"><b>At risk</b> — symptoms within IWP; continue evaluation and monitoring.</div>`;
+  } else {
+    html += `<div class="result ok"><b>Patient does not meet NHSN CLABSI Criteria</b> (as of assessment date).</div>`;
+  }
+
+  if(!meets){
+    const reasons = [];
+    if(!bcxPos) reasons.push("No positive blood culture.");
+    if(!eligible) reasons.push("Not eligible (&gt;2 central-line days) by assessment date (eligible starting Day 3).");
+    if(!devAssoc) reasons.push("Not device-associated (not in place on assessment date or removed day before).");
+
+    // Extra reasons for commensals
+    if(isSkinFlora){
+      if(!bcxPos) reasons.push("For skin flora, positive blood cultures are required.");
+      if(bcxPos && bcxCount < 2) reasons.push("For skin flora, ≥2 positive blood cultures are required (same organism).");
+      if(bcxPos && bcxCount >= 2 && !sepYes) reasons.push("For skin flora, cultures must be collected on separate occasions (same or consecutive days).");
+      if(!symptomAny) reasons.push("For skin flora, at least one symptom (fever, chills, hypotension) is required.");
+    }
+
+    if(reasons.length){
+      html += `<div class="note"><b>Reason(s) criteria not met:</b> ${reasons.join(" ")}</div>`;
+    }
+  }
+
+  el('cl2-result').innerHTML = html;
+});
+
+// Initialize dynamic hints/UI for CLABSI 2
+updateCL2_IWPLabel();
+updateCL2OrganismUI();
+
+/* ========= CAUTI ========= */
+el('cauti-enable').addEventListener('change', e=>{
+  el('cauti-form').style.display = e.target.checked ? 'block' : 'none';
+  el('cauti-info').style.display = e.target.checked ? 'none' : 'block';
+  updateCautiEligibilityBanner(); /* NEW */
+});
+
+document.querySelectorAll('#cu-inplace-row input[type=radio]').forEach(r=>{
+  r.addEventListener('change', ()=>{
+    const val = document.querySelector('input[name="cu-inplace"]:checked')?.value || 'No';
+    const disableRemoval = (val === 'Yes');
+    el('cu-removal').disabled = disableRemoval;
+    el('cu-catheter-in-place-note').style.display = disableRemoval ? 'block' : 'none';
+    updateCautiEligibilityBanner(); /* NEW */
+  });
+});
+
+el('cu-use-ucx').addEventListener('change', e=>{
+  el('cu-ucx-wrap').style.display = e.target.checked ? 'block' : 'none';
+  updateCU_IWPLabel();
+});
+
+/* UPDATED: also listen for insert/removal date changes */
+['cu-assess','cu-ucx','cu-insert','cu-removal'].forEach(id=>{
+  const n = el(id);
+  n && n.addEventListener('change', ()=>{
+    updateCU_IWPLabel();
+    updateCautiEligibilityBanner(); /* NEW */
+  });
+});
+
+el('cu-tempf').addEventListener('input', ()=>{
+  const f = parseFloat(el('cu-tempf').value||0);
+  el('cu-tempc').textContent = `≈ ${(fToC(f)).toFixed(1)} °C`;
+});
+
+function updateCU_IWPLabel(){
+  const useUcx = el('cu-use-ucx').checked;
+  const anchor = useUcx ? parseDateInput('cu-ucx') : parseDateInput('cu-assess');
+  el('cu-iwp-hint').textContent = iwpText(anchor);
+}
+
+/* NEW: Show CAUTI banner when insertion→removal days ≤ 2 */
+function updateCautiEligibilityBanner(){
+  const banner = el('cu-eligibility-banner');
+  if(!banner) return;
+
+  const inplace = (document.querySelector('input[name="cu-inplace"]:checked')?.value === 'Yes');
+  if (inplace) { banner.style.display = 'none'; return; }
+
+  const ins = parseDateInput('cu-insert');
+  const removal = parseDateInput('cu-removal');
+
+  // Only show when both dates exist and are valid
+  if (!ins || !removal || ins > removal) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  // Inclusive day count (insertion day = Day 1). Not eligible if ≤ 2.
+  const catDays = daysInclusive(ins, removal);
+  const notEligible = catDays <= 2; // change to < 2 if you want strictly "less than 2"
+  banner.style.display = notEligible ? 'block' : 'none';
+}
+
+el('cu-run').addEventListener('click', ()=>{
+  const ins = parseDateInput('cu-insert');
+  const asmt = parseDateInput('cu-assess');
+  const inplace = document.querySelector('input[name="cu-inplace"]:checked')?.value || 'No';
+  let removal = parseDateInput('cu-removal');
+  if(inplace === 'Yes') removal = null;
+
+  const useUcx = el('cu-use-ucx').checked;
+  const ucx = useUcx ? parseDateInput('cu-ucx') : null;
+
+  const errors = [];
+  const effectiveEnd = (inplace === 'Yes') ? asmt : removal;
+  if(!ins || !asmt){ errors.push("Please enter insertion and assessment dates."); }
+  if(ins && asmt && ins > asmt){ errors.push("Insertion date cannot be after the assessment date."); }
+  if(ins && effectiveEnd && ins > effectiveEnd){ errors.push("Insertion date cannot be after the removal/assessment date."); }
+  if(inplace === 'No' && !removal){ errors.push("Please enter removal date when the catheter is not in place."); }
+
+  if(errors.length){
+    el('cu-result').innerHTML = `<div class="result err">${errors.join('<br>')}</div>`;
+    return;
+  }
+
+  let inPlaceFlag = (inplace === 'Yes');
+  if(!inPlaceFlag && removal && asmt && (removal.getTime() === asmt.getTime())){
+    inPlaceFlag = true;
+  }
+
+  const days = daysInclusive(ins, (inPlaceFlag ? asmt : removal));
+  const eligible = days > 2;
+
+  let devAssoc = false;
+  if(inPlaceFlag) devAssoc = true;
+  else if(removal && asmt) devAssoc = (removal.getTime() === addDays(asmt,-1).getTime());
+
+  const anchor = ucx || asmt;
+  el('cu-iwp-hint').textContent = iwpText(anchor);
+
+  const f = parseFloat(el('cu-tempf').value||0);
+  const c = fToC(f);
+  const fever = c > 38.0;
+
+  const supra = (document.querySelector('input[name="cu-supra"]:checked')?.value === 'Yes');
+  const cva   = (document.querySelector('input[name="cu-cva"]:checked')?.value === 'Yes');
+  const urgR  = (document.querySelector('input[name="cu-urg"]:checked')?.value === 'Yes');
+  const freqR = (document.querySelector('input[name="cu-freq"]:checked')?.value === 'Yes');
+  const dysR  = (document.querySelector('input[name="cu-dys"]:checked')?.value === 'Yes');
+
+  const urgency   = inPlaceFlag ? false : urgR;
+  const frequency = inPlaceFlag ? false : freqR;
+  const dysuria   = inPlaceFlag ? false : dysR;
+
+  const ucxPos = (document.querySelector('input[name="cu-ucxpos"]:checked')?.value === 'Yes');
+  const anySymptom = (fever || supra || cva || urgency || frequency || dysuria);
+
+  const meets = (ucxPos && eligible && devAssoc && anySymptom);
+
+  let html = '';
+  html += `<div class="kv"><span class="k">Insertion date:</span> ${ins ? ins.toISOString().slice(0,10) : ''}</div>`;
+  html += `<div class="kv"><span class="k">Assessment date:</span> ${asmt ? asmt.toISOString().slice(0,10) : ''}</div>`;
+  if(removal){ html += `<div class="kv"><span class="k">Catheter removal date:</span> ${removal.toISOString().slice(0,10)}</div>`; }
+  if(ucx){ html += `<div class="kv"><span class="k">Urine culture date (IWP anchor):</span> ${ucx.toISOString().slice(0,10)}</div>`; }
+  html += `<div class="kv"><span class="k">IWP for symptom eligibility:</span> ${iwpText(anchor)} <span class="muted">(7 day window: anchor date ± 3 days; for UTI/CAUTI, urine culture anchors IWP)</span></div>`;
+  html += `<div class="kv"><span class="k">Catheter days (calendar days):</span> ${days}</div>`;
+  html += `<div class="kv"><span class="k">NHSN catheter-day eligibility (&gt;2 days):</span> ${eligible}</div>`;
+  html += `<div class="kv"><span class="k">Device association (in place on assessment or removed yesterday):</span> ${devAssoc}</div>`;
+
+  if(meets){
+    html += `<div class="result err"><b>Patient meets NHSN CAUTI Criteria</b> (as of assessment date).</div>`;
+  }else if(anySymptom){
+    html += `<div class="result warn"><b>At risk</b> — symptoms within IWP; continue evaluation and monitoring.</div>`;
+  }else{
+    html += `<div class="result ok"><b>Patient does not meet NHSN CAUTI Criteria</b> (as of assessment date).</div>`;
+  }
+
+  if(!meets){
+    const reasons = [];
+    if(!ucxPos) reasons.push("No positive urine culture.");
+    if(!eligible) reasons.push("Not eligible (&gt;2 catheter-days) by assessment date (eligible starting Day 3).");
+    if(!devAssoc) reasons.push("Not device-associated (not in place on assessment date or removed day before).");
+    if(!anySymptom) reasons.push("No eligible symptom within IWP.");
+    if(reasons.length){
+      html += `<div class="note"><b>Reason(s) criteria not met:</b> ${reasons.join(" ")}</div>`;
+    }
+  }
+
+  el('cu-result').innerHTML = html;
+});
+
+/* Initialize banners on load */
+updateClabsiEligibilityBanner();
+updateClabsi2EligibilityBanner();
+updateCautiEligibilityBanner();
+
+/* ========= Blood Culture Escalation ========= */
+function updateBlood(){
+  const hasCVC = (document.querySelector('input[name="bc-hascvc"]:checked')?.value === 'Yes');
+  el('bc-when-yes').style.display = hasCVC ? 'block' : 'none';
+  el('bc-when-no').style.display  = hasCVC ? 'none' : 'block';
+  if(hasCVC){
+    const recent = (document.querySelector('input[name="bc-recentadm"]:checked')?.value === 'Yes');
+    el('bc-out-yes').style.display = 'block';
+    el('bc-out-yes').innerHTML = recent
+      ? `Acquire blood culture — escalation to <b>${BLOOD_LEADERSHIP_LABEL}</b> not needed.`
+      : `Contact <b>${BLOOD_LEADERSHIP_LABEL}</b> to assist in clinical necessity.`;
+  } else {
+    const recentCVC = (document.querySelector('input[name="bc-recentcvc"]:checked')?.value === 'Yes');
+    el('bc-out-no').style.display = 'block';
+    el('bc-out-no').innerHTML = recentCVC
+      ? `Contact <b>${BLOOD_LEADERSHIP_LABEL}</b> to assist in clinical necessity.`
+      : `Acquire blood culture — escalation to <b>${BLOOD_LEADERSHIP_LABEL}</b> not needed.`;
+  }
+}
+document.querySelectorAll('input[name="bc-hascvc"], input[name="bc-recentadm"], input[name="bc-recentcvc"]').forEach(x=>{
+  x.addEventListener('change', updateBlood);
+});
+updateBlood();
+
+/* ========= Urine Culture Escalation ========= */
+function updateUrine(){
+  const hasFoley = (document.querySelector('input[name="uc-hasfoley"]:checked')?.value === 'Yes');
+  el('uc-when-yes').style.display = hasFoley ? 'block' : 'none';
+  el('uc-when-no').style.display  = hasFoley ? 'none' : 'block';
+  if(hasFoley){
+    const recent = (document.querySelector('input[name="uc-recentadm"]:checked')?.value === 'Yes');
+    el('uc-out-yes').style.display = 'block';
+    el('uc-out-yes').innerHTML = recent
+      ? `Acquire urine culture — escalation to <b>${URINE_LEADERSHIP_LABEL}</b> not needed.`
+      : `Contact <b>${URINE_LEADERSHIP_LABEL}</b> to assist with determining clinical necessity.`;
+  } else {
+    const recentFoley = (document.querySelector('input[name="uc-recentfoley"]:checked')?.value === 'Yes');
+    el('uc-out-no').style.display = 'block';
+    el('uc-out-no').innerHTML = recentFoley
+      ? `Contact <b>${URINE_LEADERSHIP_LABEL}</b> to assist with determining clinical necessity.`
+      : `Acquire urine culture — escalation to <b>${URINE_LEADERSHIP_LABEL}</b> not needed.`;
+  }
+}
+document.querySelectorAll('input[name="uc-hasfoley"], input[name="uc-recentadm"], input[name="uc-recentfoley"]').forEach(x=>{
+  x.addEventListener('change', updateUrine);
+});
+updateUrine();
+
+// ===== SSI: NHSN procedure list (Table 2) =====
+// period: 30 or 90 (superficial always 30; we use this for deep/OS checks)
+const SSI_PROCEDURES = [
+  // 30-day surveillance
+  {code:'AAA',  name:'Abdominal aortic aneurysm repair', period:30},
+  {code:'AMP',  name:'Limb amputation', period:30},
+  {code:'APPY', name:'Appendix surgery', period:30},
+  {code:'AVSD', name:'Shunt for dialysis', period:30},
+  {code:'BILI', name:'Bile duct, liver or pancreatic surgery', period:30},
+  {code:'CEA',  name:'Carotid endarterectomy', period:30},
+  {code:'CHOL', name:'Gallbladder surgery', period:30},
+  {code:'COLO', name:'Colon surgery', period:30},
+  {code:'CSEC', name:'Cesarean section', period:30},
+  {code:'GAST', name:'Gastric surgery', period:30},
+  {code:'HTP',  name:'Heart transplant', period:30},
+  {code:'HYST', name:'Abdominal hysterectomy', period:30},
+  {code:'KTP',  name:'Kidney transplant', period:30},
+  {code:'LAM',  name:'Laminectomy', period:30},
+  {code:'LTP',  name:'Liver transplant', period:30},
+  {code:'NECK', name:'Neck surgery', period:30},
+  {code:'NEPH', name:'Kidney surgery', period:30},
+  {code:'OVRY', name:'Ovarian surgery', period:30},
+  {code:'PRST', name:'Prostate surgery', period:30},
+  {code:'REC',  name:'Rectal surgery', period:30},
+  {code:'SB',   name:'Small bowel surgery', period:30},
+  {code:'SPLE', name:'Spleen surgery', period:30},
+  {code:'THOR', name:'Thoracic surgery', period:30},
+  {code:'THYR', name:'Thyroid/parathyroid surgery', period:30},
+  {code:'VHYS', name:'Vaginal hysterectomy', period:30},
+  {code:'XLAP', name:'Exploratory laparotomy', period:30},
+  // 90-day surveillance
+  {code:'BRST', name:'Breast surgery', period:90},
+  {code:'CARD', name:'Cardiac surgery', period:90},
+  {code:'CBGB', name:'CABG — chest + donor incisions', period:90},
+  {code:'CBGC', name:'CABG — chest incision only', period:90},
+  {code:'CRAN', name:'Craniotomy', period:90},
+  {code:'FUSN', name:'Spinal fusion', period:90},
+  {code:'FX',   name:'Open reduction of fracture', period:90},
+  {code:'HER',  name:'Herniorrhaphy', period:90},
+  {code:'HPRO', name:'Hip prosthesis', period:90},
+  {code:'KPRO', name:'Knee prosthesis', period:90},
+  {code:'PACE', name:'Pacemaker surgery', period:90},
+  {code:'PVBY', name:'Peripheral vascular bypass', period:90},
+  {code:'VSHN', name:'Ventricular shunt', period:90},
+];
+
+// Organ/Space specific sites (NHSN Chapter 17 – table of eligible sites)
+const SSI_OS_SITES = [
+  'BONE','BRST','CARD','DISC','EAR','EMET','ENDO','GIT','IAB','IC','JNT','LUNG',
+  'MED','MEN','ORAL','OREP','PJI','SA','SINU','UR','USI','VASC','VCUF'
+];
+
+// --- SSI specific procedures (starter). Replace with external JSON later. ---
+// Structure: { [year]: { [NHSN_CATEGORY]: [ {label, codes:[...]} ] } }
+const SSI_SPECIFIC_BY_YEAR = {
+  "2026": {
+    "COLO": [
+      { label: "Right hemicolectomy (open/lap)",    codes: ["ICD10-PCS/CPT…"] },
+      { label: "Sigmoid colectomy (open/lap)",      codes: ["ICD10-PCS/CPT…"] },
+      { label: "Transverse colectomy",              codes: ["ICD10-PCS/CPT…"] },
+      { label: "Subtotal colectomy",                codes: ["ICD10-PCS/CPT…"] },
+      { label: "Ileo–colic anastomosis only",       codes: ["ICD10-PCS/CPT…"] }
+    ],
+    "HPRO": [
+      { label: "Total hip arthroplasty (primary)",  codes: ["ICD10-PCS/CPT…"] },
+      { label: "Revision total hip arthroplasty",   codes: ["ICD10-PCS/CPT…"] },
+      { label: "Hemiarthroplasty of hip",           codes: ["ICD10-PCS/CPT…"] }
+    ],
+    "HYST": [
+      { label: "Abdominal hysterectomy",            codes: ["ICD10-PCS/CPT…"] },
+      { label: "Robotic-assisted total hysterectomy", codes: ["ICD10-PCS/CPT…"] }
+    ]
+  }
+};
+
+// Use the mapping year based on the procedure date year (NHSN practice)
+function getSSIMapForProcedureYear(procDate){
+  const y = procDate ? String(procDate.getFullYear()) : "2026";
+  return SSI_SPECIFIC_BY_YEAR[y] || SSI_SPECIFIC_BY_YEAR["2026"];
+}
+
+// Populate dropdowns
+(function initSSIUI(){
+  const procSel = document.getElementById('ssi-proc');
+  if (procSel) {
+    procSel.innerHTML = '<option value="">Select procedure…</option>' +
+      SSI_PROCEDURES.map(p => `<option value="${p.code}">${p.code} — ${p.name}</option>`).join('');
+  }
+  const siteSel = document.getElementById('os-site');
+  if (siteSel) {
+    siteSel.innerHTML = '<option value="">Select site…</option>' +
+      SSI_OS_SITES.map(s => `<option value="${s}">${s}</option>`).join('');
+  }
+})();
+
+// Show criteria block based on depth
+function updateSSIDepthUI(){
+  const depth = document.querySelector('input[name="ssi-depth"]:checked')?.value || '';
+  document.getElementById('ssi-crit-superficial').style.display = (depth==='superficial' ? 'block':'none');
+  document.getElementById('ssi-crit-deep').style.display        = (depth==='deep' ? 'block':'none');
+  document.getElementById('ssi-crit-orgspace').style.display    = (depth==='orgspace' ? 'block':'none');
+}
+document.querySelectorAll('input[name="ssi-depth"]').forEach(r => r.addEventListener('change', updateSSIDepthUI));
+
+// Timing hint/banner
+function updateSSIWindowHints(){
+  const proc = document.getElementById('ssi-proc')?.value || '';
+  const procDate = parseDateInput('ssi-procdate');
+  const evDate   = parseDateInput('ssi-eventdate');
+  const hint  = document.getElementById('ssi-window-hint');
+  const banner= document.getElementById('ssi-window-banner');
+
+  banner.style.display = 'none';
+  if (!proc || !procDate) {
+    hint.textContent = '(surveillance window will be calculated)';
+    return;
+  }
+  // Look up period
+  const meta = SSI_PROCEDURES.find(p => p.code===proc);
+  const days = meta?.period || 30; // deep/OS period; superficial always 30
+
+  // Compute end dates
+  const end30 = addDays(procDate, 29);
+  const end90 = addDays(procDate, 89);
+  hint.textContent = `Surveillance windows — Superficial: ${fmtDate(procDate)}–${fmtDate(end30)}; Deep/Organ-Space: ${fmtDate(procDate)}–${fmtDate(days===90? end90 : end30)}`;
+
+  if (evDate) {
+    const beyondDeepOS = (days===30 && evDate > end30) || (days===90 && evDate > end90);
+    if (beyondDeepOS) banner.style.display = 'block';
+  }
+}
+['ssi-proc','ssi-procdate','ssi-eventdate'].forEach(id=>{
+  const n = document.getElementById(id);
+  n && n.addEventListener('change', updateSSIWindowHints);
+});
+updateSSIWindowHints();
+// ===== Wire up the Specific Procedure dropdown =====
+const specificSel = document.getElementById('ssi-proc-specific');
+
+function populateSpecificProcedures(){
+  const cat = document.getElementById('ssi-proc')?.value || '';
+  const procDate = parseDateInput('ssi-procdate'); // existing helper
+  const map = getSSIMapForProcedureYear(procDate); // uses your existing function
+  const entries = (map && cat) ? (map[cat] || []) : [];
+
+  if (!specificSel) return;
+
+  if (!cat) {
+    specificSel.innerHTML = '<option value="">Select category first…</option>';
+    specificSel.disabled = true;
+    return;
+  }
+
+  if (!entries.length) {
+    specificSel.innerHTML = '<option value="">(No specific procedures loaded for this category/year)</option>';
+    specificSel.disabled = true;
+    return;
+  }
+
+  specificSel.disabled = false;
+  specificSel.innerHTML = '<option value="">Select specific procedure…</option>' +
+    entries.map(e => `<option value="${e.label}" data-codes="${(e.codes||[]).join(',')}">${e.label}</option>`).join('');
+}
+
+// Rebuild when category or procedure date changes
+['ssi-proc', 'ssi-procdate'].forEach(id=>{
+  const n = document.getElementById(id);
+  n && n.addEventListener('change', populateSpecificProcedures);
+});
+
+// Optional: surface the mapped codes (documentation only)
+specificSel?.addEventListener('change', ()=>{
+  const opt = specificSel.options[specificSel.selectedIndex];
+  const codes = (opt && opt.dataset.codes) ? opt.dataset.codes : '';
+  if (codes) console.log('Code(s) for selected specific procedure:', codes);
+});
+
+// Initialize on load
+populateSpecificProcedures();
+
+
+// Core calculator
+document.getElementById('ssi-run')?.addEventListener('click', ()=>{
+  const errors = [];
+  const procCode = document.getElementById('ssi-proc')?.value || '';
+  const procDate = parseDateInput('ssi-procdate');
+  const evDate   = parseDateInput('ssi-eventdate');
+  const depth = document.querySelector('input[name="ssi-depth"]:checked')?.value || '';
+
+  if (!procCode) errors.push('Select an NHSN procedure category.');
+  if (!procDate) errors.push('Enter the procedure date.');
+  if (!evDate)   errors.push('Enter the Date of first qualifying element (DOE).');
+  if (!depth)    errors.push('Choose the deepest tissue level involved.');
+
+  const meta = SSI_PROCEDURES.find(p => p.code===procCode);
+  const deepOSPeriod = meta?.period || 30;
+
+  // Surveillance window checks
+  let withinWindow = false;
+  if (procDate && evDate) {
+    const end30 = addDays(procDate, 29);
+    const end90 = addDays(procDate, 89);
+    if (depth === 'superficial') {
+      withinWindow = (evDate >= procDate && evDate <= end30);
+    } else {
+      const end = (deepOSPeriod===90) ? end90 : end30;
+      withinWindow = (evDate >= procDate && evDate <= end);
+    }
+  }
+
+  if (errors.length) {
+    document.getElementById('ssi-result').innerHTML =
+      `<div class="result err">${errors.join('<br>')}</div>`;
+    return;
+  }
+
+  // Evaluate criteria by depth
+  let meets = false;
+  let partial = false;
+  const reasons = [];
+
+  if (!withinWindow) {
+    reasons.push('Event date outside the NHSN surveillance window for this procedure.');
+  }
+
+  if (depth === 'superficial') {
+    const elAny = (document.getElementById('si-pus').checked ||
+                   document.getElementById('si-cx').checked  ||
+                   document.getElementById('si-open').checked||
+                   document.getElementById('si-dx').checked);
+    meets = withinWindow && elAny;
+    partial = !meets && (elAny || withinWindow);
+    if (!elAny) reasons.push('No superficial incisional criterion selected.');
+  }
+
+  if (depth === 'deep') {
+    const elAny = (document.getElementById('di-pus').checked ||
+                   document.getElementById('di-open').checked||
+                   document.getElementById('di-abscess').checked);
+    meets = withinWindow && elAny;
+    partial = !meets && (elAny || withinWindow);
+    if (!elAny) reasons.push('No deep incisional criterion selected.');
+  }
+
+  if (depth === 'orgspace') {
+    const elAny = (document.getElementById('os-pus').checked ||
+                   document.getElementById('os-cx').checked  ||
+                   document.getElementById('os-abscess').checked);
+    const site  = document.getElementById('os-site')?.value || '';
+    const siteOK= document.getElementById('os-site-met').checked && !!site;
+    meets = withinWindow && elAny && siteOK;
+    partial = !meets && ((elAny && !siteOK) || withinWindow);
+    if (!elAny) reasons.push('No organ/space element selected.');
+    if (!siteOK) reasons.push('Organ/space requires a site‑specific criterion (select site and confirm met).');
+  }
+
+  // Render result summary
+  let html = '';
+  html += `<div class="kv"><span class="k">Procedure:</span> ${procCode || '—'} ${meta? '— '+meta.name:''}</div>`;
+  html += `<div class="kv"><span class="k">Procedure date:</span> ${procDate? procDate.toISOString().slice(0,10):''}</div>`;
+  html += `<div class="kv"><span class="k">Event (DOE) date:</span> ${evDate? evDate.toISOString().slice(0,10):''}</div>`;
+  html += `<div class="kv"><span class="k">Depth selected:</span> ${depth || '—'}</div>`;
+  html += `<div class="kv"><span class="k">Surveillance window:</span> ${document.getElementById('ssi-window-hint').textContent}</div>`;
+
+  if (meets) {
+    html += `<div class="result err"><b>Patient meets NHSN SSI criteria</b> (as of DOE).</div>`;
+  } else if (partial) {
+    html += `<div class="result warn"><b>At risk / partially meets</b> — continue evaluation and documentation.</div>`;
+  } else {
+    html += `<div class="result ok"><b>Patient does not meet NHSN SSI criteria</b> (as of DOE).</div>`;
+  }
+
+  if (!meets && reasons.length) {
+    html += `<div class="note"><b>Reason(s):</b> ${reasons.join(' ')}</div>`;
+  }
+
+  document.getElementById('ssi-result').innerHTML = html;
+});
+
+/* ========= C. diff Ticket ========= */
+
+// Wire up hospitalization day calc and banner
+function updateCdiffDayHints(){
+  const admit = parseDateInput('cd-admit');
+  const collect = parseDateInput('cd-collect');
+  const hint = el('cd-hospday-hint');
+  const banner = el('cd-day4-banner');
+
+  banner.style.display = 'none';
+  if(!admit || !collect){
+    hint.textContent = '(hospitalization day will be calculated)';
+    return;
+  }
+  if(admit > collect){
+    hint.textContent = '⚠️ Admission cannot be after the collection date.';
+    return;
+  }
+  const hospDay = daysInclusive(admit, collect);
+  hint.textContent = `Hospitalization day at time of collection: Day ${hospDay}`;
+  if(hospDay >= 4){
+    banner.style.display = 'block'; // GMH ticket: discuss if day ≥ 4
+  }
+}
+
+// Main evaluator
+function runCdiffTicket(){
+  const errors = [];
+
+  const admit = parseDateInput('cd-admit');
+  const collect = parseDateInput('cd-collect');
+  if(!admit || !collect) errors.push('Please enter Admission and Collection dates.');
+  if(admit && collect && admit > collect) errors.push('Admission date cannot be after the collection date.');
+
+  const hospDay = (admit && collect) ? daysInclusive(admit, collect) : null;
+
+  const newDiarrhea = (document.querySelector('input[name="cd-newdiarrhea"]:checked')?.value === 'Yes');
+  const stoolCount = parseInt(el('cd-stoolcount').value || '0', 10);
+  const bristol = parseInt(document.querySelector('input[name="cd-bristol"]:checked')?.value || '0', 10);
+
+  const sxWBC  = el('cd-sx-wbc').checked;
+  const sxPain = el('cd-sx-pain').checked;
+  const sxFever= el('cd-sx-fever').checked;
+
+  const hasLax24  = el('cd-lax-24h').checked;
+  const hasPrep48 = el('cd-prep-48h').checked;
+  const hasIBD    = el('cd-ibd').checked;
+  const hasPPI    = el('cd-ppi').checked;
+  const hasMgO    = el('cd-mgo').checked;
+  const onAbx     = el('cd-abx').checked;
+  const tubeFeed  = el('cd-tube').checked;
+
+  const pos30d = el('cd-pos-30d').checked;
+  const neg7d  = el('cd-neg-7d').checked;
+
+  if(errors.length){
+    el('cd-result').innerHTML = `<div class="result err">${errors.join('<br>')}</div>`;
+    return;
+  }
+
+  // Eligibility checks from GMH ticket
+  const has3orMore = (stoolCount >= 3);
+  const bristolOk  = (bristol >= 6); // ticket highlights types 6–7
+  const supportive = (sxWBC || sxPain || sxFever);
+
+  // Reasons to defer / re-check with provider per ticket
+  const hardStops = [];
+  if(pos30d){
+    // Guidance depends on symptoms (from ticket language)
+    if(newDiarrhea || supportive){
+      hardStops.push('Positive C. diff within 30 days and symptomatic — discuss treating without re-testing.');
+    } else {
+      hardStops.push('Positive C. diff within 30 days and no symptoms — avoid re-testing and avoid treating.');
+    }
+  }
+  if(neg7d){
+    hardStops.push('Negative C. diff within 7 days — avoid re-testing unless symptoms have worsened.');
+  }
+  if(hasLax24){
+    hardStops.push('Laxatives/stool softeners within 24 h — consider holding testing.');
+  }
+  if(hasPrep48){
+    hardStops.push('Bowel prep/enema within 48 h — consider holding testing.');
+  }
+
+  const caution = [];
+  if(tubeFeed) caution.push('On tube feeds (recent change?)');
+  if(hasPPI)   caution.push('On PPI');
+  if(hasMgO)   caution.push('Magnesium oxide ≥ 800 mg/day');
+  if(onAbx)    caution.push('Current/recent antibiotics');
+  if(hasIBD)   caution.push('IBS/Crohn’s/Ulcerative Colitis');
+
+  // Core testing appropriateness flags
+  const meetsDiarrhea = newDiarrhea && has3orMore && bristolOk;
+
+  // Decision
+  let html = '';
+  html += `<div class="kv"><span class="k">Admission date:</span> ${admit ? admit.toISOString().slice(0,10) : ''}</div>`;
+  html += `<div class="kv"><span class="k">Collection date:</span> ${collect ? collect.toISOString().slice(0,10) : ''}</div>`;
+  if(hospDay){ html += `<div class="kv"><span class="k">Hospital day at collection:</span> ${hospDay}</div>`; }
+  html += `<div class="kv"><span class="k">New onset diarrhea:</span> ${newDiarrhea}</div>`;
+  html += `<div class="kv"><span class="k">Unformed stools in last 24h:</span> ${stoolCount}</div>`;
+  html += `<div class="kv"><span class="k">Bristol type:</span> ${bristol || '—'} (target 6–7)</div>`;
+  html += `<div class="kv"><span class="k">Supportive symptoms:</span> ${(supportive ? 'Yes' : 'No')} ${supportive ? '(WBC/abd pain/fever)' : ''}</div>`;
+
+  // Recommendation tiers:
+  // 1) "Proceed" only when core diarrhea criteria met AND no hard-stops
+  // 2) Otherwise "Defer & discuss" with the list of reasons
+  const hasHardStops = hardStops.length > 0;
+  if(meetsDiarrhea && !hasHardStops){
+    html += `<div class="result err"><b>Proceed to collect C. diff stool</b> (meets ticket criteria).</div>`;
+  } else {
+    html += `<div class="result warn"><b>Defer & discuss with ordering provider</b> before collecting.</div>`;
+    const reasons = [];
+    if(!newDiarrhea) reasons.push('Not clearly new-onset diarrhea.');
+    if(!has3orMore)  reasons.push('Fewer than 3 unformed stools in 24 h.');
+    if(!bristolOk)   reasons.push('Bristol type not 6–7.');
+    reasons.push(...hardStops);
+    if(reasons.length){
+      html += `<div class="note"><b>Reason(s):</b> ${reasons.join(' ')}</div>`;
+    }
+  }
+
+  // Day ≥4 reminder (ticket language)
+  if(hospDay !== null && hospDay >= 4){
+    html += `<div class="note"><b>Reminder:</b> Hospital day ≥ 4 — discuss with provider before collection. 
+</div>`;
+  }
+
+  // Cautions that don’t block testing but warrant consideration
+  if(caution.length){
+    html += `<div class="note"><b>Considerations:</b> ${caution.join('; ')}.</div>`;
+  }
+
+  // Attestation echo (optional)
+  const nurse = (el('cd-nurse').value || '').trim();
+  const charge = (el('cd-charge').value || '').trim();
+  if(nurse || charge){
+    html += `<div class="kv"><span class="k">Attestation:</span> ${nurse ? 'Primary Nurse: ' + nurse : ''} ${charge ? ' | Charge Nurse: ' + charge : ''}</div>`;
+  }
+
+  el('cd-result').innerHTML = html;
+}
+
+// Listeners
+['cd-admit','cd-collect'].forEach(id=>{
+  const n = el(id);
+  n && n.addEventListener('change', updateCdiffDayHints);
+});
+el('cd-run')?.addEventListener('click', ()=>{
+  updateCdiffDayHints();
+  runCdiffTicket();
+});
+
+// Initialize on load
+updateCdiffDayHints();
+
+/* ----- C. diff: Print / PDF ----- */
+el('cd-print')?.addEventListener('click', () => {
+  // Make sure results are up to date on the print-out
+  updateCdiffDayHints();
+  runCdiffTicket();
+  // Let the DOM paint, then open Print dialog
+  setTimeout(() => window.print(), 50);
+});
+/* ===== C. diff: Auto-compact any long link labels ===== */
+(function compactCdiffLinks(){
+  const scope = document.getElementById('panel-cdiff');
+  if(!scope) return;
+  const anchors = scope.querySelectorAll('a[href]');
+  anchors.forEach(a => {
+    const href = (a.getAttribute('href') || '').trim();
+    if(!href) return;
+
+    // If author provided a data-label, use that as the visible text.
+    const dataLabel = a.getAttribute('data-label');
+    if (dataLabel && a.textContent.trim() !== dataLabel.trim()) {
+      a.textContent = dataLabel.trim();
+      return;
+    }
+
+    // If the visible text looks like the raw URL (or is very long), replace it.
+    const text = a.textContent.trim();
+    const looksLikeUrl = text.startsWith('http://') || text.startsWith('https://');
+    const tooLong = text.length > 60;  // tweak threshold as you like
+
+    if (looksLikeUrl || tooLong) {
+      try {
+        const u = new URL(href);
+        // Friendly label by host
+        let hostLabel = u.hostname.replace(/^www\./,'');
+        // Some common niceties:
+        if (hostLabel.includes('sharepoint')) hostLabel = 'SharePoint';
+        const newLabel = `Open (${hostLabel})`;
+        a.textContent = newLabel;
+      } catch {
+        a.textContent = 'Open link';
+      }
+    }
+  });
+})();
+
+
+</script>
+</body>
+</html>
