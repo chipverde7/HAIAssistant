@@ -748,7 +748,7 @@
     <div id="cauti-full-mode" style="display:none;">
       <div class="row">
         <div>
-          <label for="cu-insert">Catheter insertion date</label>
+          <label for="cu-insert">Current catheter insertion date</label>
           <input type="date" id="cu-insert"/>
           <div class="help">Day 1 = insertion day. Eligible starting Day 3.</div>
         </div>
@@ -756,6 +756,22 @@
           <label for="cu-assess">Assessment / DOE</label>
           <input type="date" id="cu-assess"/>
         </div>
+      </div>
+
+      <!-- Prior catheter toggle -->
+      <div class="radio-row" style="margin-top:10px;">
+        <label><input type="checkbox" id="cu-prior-enable" /> <span>Prior catheter was in place before this one (e.g. removed and replaced)</span></label>
+      </div>
+      <div id="cu-prior-wrap" style="display:none; margin-top:8px;">
+        <fieldset class="fs" style="border-color:#2980b9; background:#f0f8ff;">
+          <legend>Prior Catheter</legend>
+          <div class="help" style="margin-bottom:10px;">
+            Per NHSN, device-days accumulate across catheters when a Foley is removed and replaced. Enter the <strong>earliest</strong> insertion date to calculate total combined dwell time for eligibility. Device association is still evaluated against the current catheter.
+          </div>
+          <label for="cu-prior-insert">Prior catheter insertion date</label>
+          <input type="date" id="cu-prior-insert"/>
+          <div class="help">The eligibility day count will use this earlier date instead of the current catheter insertion date.</div>
+        </fieldset>
       </div>
 
       <fieldset class="fs">
@@ -1879,8 +1895,14 @@ el('cu-use-ucx').addEventListener('change', e => {
   el('cu-ucx-wrap').style.display = e.target.checked ? 'block' : 'none';
   updateCU_IWPLabel();
 });
-['cu-assess','cu-ucx','cu-insert','cu-removal'].forEach(id => {
+['cu-assess','cu-ucx','cu-insert','cu-removal','cu-prior-insert'].forEach(id => {
   el(id)?.addEventListener('change', () => { updateCU_IWPLabel(); updateCautiEligibilityBanner(); });
+});
+
+// Prior catheter toggle
+el('cu-prior-enable')?.addEventListener('change', e => {
+  el('cu-prior-wrap').style.display = e.target.checked ? 'block' : 'none';
+  updateCautiEligibilityBanner();
 });
 el('cu-tempf').addEventListener('input', () => {
   const f = parseFloat(el('cu-tempf').value||0);
@@ -1892,10 +1914,13 @@ function updateCautiEligibilityBanner(){
   if(!banner) return;
   const inplace = document.querySelector('input[name="cu-inplace"]:checked')?.value === 'Yes';
   if(inplace){ banner.style.display='none'; return; }
-  const ins = parseDateInput('cu-insert');
+  const usePrior = el('cu-prior-enable')?.checked;
+  const earliestIns = usePrior && parseDateInput('cu-prior-insert')
+    ? parseDateInput('cu-prior-insert')
+    : parseDateInput('cu-insert');
   const removal = parseDateInput('cu-removal');
-  if(!ins || !removal || ins > removal){ banner.style.display='none'; return; }
-  banner.style.display = daysInclusive(ins, removal) <= 2 ? 'block' : 'none';
+  if(!earliestIns || !removal || earliestIns > removal){ banner.style.display='none'; return; }
+  banner.style.display = daysInclusive(earliestIns, removal) <= 2 ? 'block' : 'none';
 }
 function updateCU_IWPLabel(){
   const anchor = el('cu-use-ucx').checked ? parseDateInput('cu-ucx') : parseDateInput('cu-assess');
@@ -1910,16 +1935,23 @@ el('cu-run').addEventListener('click', () => {
   const useUcx = el('cu-use-ucx').checked;
   const ucx = useUcx ? parseDateInput('cu-ucx') : null;
 
+  // Prior catheter: use earliest insertion date for eligibility day count
+  const usePrior = el('cu-prior-enable')?.checked;
+  const priorIns = usePrior ? parseDateInput('cu-prior-insert') : null;
+  const earliestIns = (priorIns && ins && priorIns < ins) ? priorIns : ins;
+
   const errors = [];
   if(!ins || !asmt) errors.push("Please enter insertion and assessment dates.");
   if(ins && asmt && ins > asmt) errors.push("Insertion date cannot be after the assessment date.");
+  if(priorIns && ins && priorIns >= ins) errors.push("Prior catheter insertion date must be before the current catheter insertion date.");
   if(inplace === 'No' && !removal) errors.push("Please enter removal date when catheter is not in place.");
   if(errors.length){ el('cu-result').innerHTML = buildResultCard('atrisk','Input Error',errors.join('<br>'),null,[]); return; }
 
   let inPlaceFlag = (inplace === 'Yes');
   if(!inPlaceFlag && removal && asmt && removal.getTime() === asmt.getTime()) inPlaceFlag = true;
 
-  const days = daysInclusive(ins, inPlaceFlag ? asmt : removal);
+  // Eligibility uses earliest insertion; device association uses current catheter
+  const days = daysInclusive(earliestIns, inPlaceFlag ? asmt : removal);
   const eligible = days > 2;
   let devAssoc = inPlaceFlag;
   if(!devAssoc && removal && asmt) devAssoc = removal.getTime() === addDays(asmt,-1).getTime();
@@ -1945,7 +1977,7 @@ el('cu-run').addEventListener('click', () => {
   const transfer = document.querySelector('input[name="cu-transfer"]:checked')?.value;
 
   const kv = [
-    ['Catheter days', days],
+    ['Catheter days (combined)', days + (priorIns ? ` (from prior insertion ${priorIns.toISOString().slice(0,10)})` : '')],
     ['Eligible (>2 days)', eligible ? 'Yes' : 'No'],
     ['Device-associated', devAssoc ? 'Yes' : 'No'],
     ['Positive urine culture', ucxPos ? 'Yes' : 'No'],
